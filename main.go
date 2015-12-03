@@ -22,6 +22,16 @@ type Block struct {
   BTransactionLength uint64
   BTransactionVersionNumber uint32
   BInputCount uint64
+  BTransactionHash [32]uint8
+  BTransactionIndex uint32
+  BInputScriptLength uint64
+  BInputScriptBytes []uint8
+  BSequenceNumber uint32
+  BOutputCount uint64
+  BOutputValue uint64
+  BChallengeScriptLength uint64
+  BChallengeScriptBytes []uint8
+  BTransactionLockTime uint32
 }
 
 type Header struct {
@@ -39,6 +49,28 @@ type Transaction struct {
   TTransactionLength uint64
   TTransactionVersionNumber uint32
   TInputCount uint64
+  TOutputCount uint64
+  TTransactionLockTime uint32
+}
+
+type TransactionInterface interface {
+}
+
+type Input struct {
+  ITransactionHash uint8
+  ITransactionIndex uint32
+  IInputScriptLength uint64
+  IInputScriptBytes []uint8
+  ISequenceNumber uint32
+}
+
+type Output struct {
+  OOutputValue uint64
+  OChallengeScriptLength uint64
+  OChallengeScriptBytes []uint8
+}
+
+type InputInterface interface {
 }
 
 type Blockchain interface {
@@ -230,6 +262,145 @@ func readInputCount(file *os.File) (uint64, error) {
   return inputCount, nil
 }
 
+func readTransactionHash(file *os.File) ([32]uint8, error) {
+  var transactionHash [32]uint8
+  b := readNextBytes(file, 32)
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &transactionHash)
+  if err != nil {
+    fmt.Println("binary.Read failed: ", err)
+  }
+  return transactionHash, nil
+}
+
+func readTransactionIndex(file *os.File) (uint32, error) {
+  var transactionIndex uint32
+  b := readNextBytes(file, 4)
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &transactionIndex)
+  if err != nil {
+    fmt.Println("binary.Read failed: ", err)
+  }
+  return transactionIndex, nil
+}
+
+func readInputScriptLength(file *os.File) (uint64, error) {
+  var inputScriptLength uint64
+  b := readNextBytes(file, 1)
+  buf := bytes.NewReader(b)
+  inputScriptLength, err := binary.ReadUvarint(buf)
+  if err != nil {
+    fmt.Println("binary.ReadUvarint failed: ", err)
+  }
+  return inputScriptLength, nil
+}
+
+func readInputScriptBytes(inputScriptLength int, file *os.File) ([]uint8, error) {
+  var inputScriptBytes = make([]uint8, inputScriptLength)
+  b := readNextBytes(file, inputScriptLength)
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &inputScriptBytes)
+  if err != nil {
+    fmt.Println("binary.Read failed: ", err)
+  }
+  return inputScriptBytes, nil
+}
+
+func readSequenceNumber(file *os.File) (uint32, error) {
+  var sequenceNumber uint32
+  b := readNextBytes(file, 4)
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &sequenceNumber)
+  if err != nil {
+    fmt.Println("binary.Read failed: ", err)
+  }
+  if validateSequenceNumber(sequenceNumber) {
+    return sequenceNumber, nil
+  }
+  return 0, errors.New("Invalid sequence number")
+}
+
+func validateSequenceNumber(sequenceNumber uint32) (bool) {
+  if sequenceNumber == 4294967295 {  //current largest sequence number
+    return true
+  }
+  return false
+}
+
+func readOutputCount(file *os.File) (uint64, error) {
+  var outputCount uint64
+  b := readNextBytes(file, 1)
+  buf := bytes.NewReader(b)
+  outputCount, err := binary.ReadUvarint(buf)
+  if err != nil {
+    fmt.Println("binary.ReadUvarint failed: ", err)
+  }
+  return outputCount, nil
+}
+
+func readOutputValue(file *os.File) (uint64, error) {
+  var outputValue uint64
+  b := readNextBytes(file, 8)
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &outputValue)
+  if err != nil {
+    fmt.Println("binary.Read failed: ", err)
+  }
+  return outputValue, nil
+}
+
+func readChallengeScriptLength(file *os.File) (uint64, error) {
+  var challengeScriptLength uint64
+  b := readNextBytes(file, 1)
+  buf := bytes.NewReader(b)
+  challengeScriptLength, err := binary.ReadUvarint(buf)
+  if err != nil {
+    fmt.Println("binary.ReadUvarint failed: ", err)
+  }
+  return challengeScriptLength, nil
+}
+
+func readChallengeScriptBytes(challengeScriptLength int, file *os.File) ([]uint8, error) {
+  var challengeScriptBytes = make([]uint8, challengeScriptLength)
+  b := readNextBytes(file, challengeScriptLength)
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &challengeScriptBytes)
+  if err != nil {
+    fmt.Println("binary.Read failed: ", err)
+  }
+  return challengeScriptBytes, nil
+}
+
+func readTransactionLockTime(file *os.File) (uint32, error) {
+  var transactionLockTime uint32
+  b := readNextBytes(file, 4)
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &transactionLockTime)
+  if err != nil {
+    fmt.Println("binary.Read failed: ", err)
+  }
+  if validateTransactionLockTime(transactionLockTime) {
+    return transactionLockTime, nil
+  }
+  return 1, errors.New("Invalid Lock Time on Transaction")
+}
+
+func validateTransactionLockTime(transactionLockTime uint32) (bool) {
+  if transactionLockTime == 0 {
+    return true
+  }
+  return false
+}
+
+
+func getTransactions(transactionLength uint64, file *os.File) (error) {
+  var i uint64
+  for ; i < transactionLength; {
+
+  }
+  return nil
+}
+
 
 
 
@@ -238,7 +409,7 @@ func readInputCount(file *os.File) (uint64, error) {
 /******************************MAIN********************************************/
 
 func main() {
-    path := "/Users/tgebhart/Library/Application Support/Bitcoin/blocks/blk00001.dat"
+    path := "/Users/tgebhart/Library/Application Support/Bitcoin/blocks/blk00000.dat"
 
     file, err := os.Open(path)
     if err != nil {
@@ -315,6 +486,68 @@ func main() {
       fmt.Println("Error reading input count", err)
     }
     fmt.Println("Input Count: ", Block.BInputCount)
+
+    Block.BTransactionHash, err = readTransactionHash(file)
+    if err != nil {
+      fmt.Println("Error reading transaction hash", err)
+    }
+    fmt.Println("Transaction Hash: ", Block.BTransactionHash)
+
+    Block.BTransactionIndex, err = readTransactionIndex(file)
+    if err != nil {
+      fmt.Println("Error reading transaction index", err)
+    }
+    fmt.Println("Transaction Index: ", Block.BTransactionIndex)
+
+    Block.BInputScriptLength, err = readInputScriptLength(file)
+    if err != nil {
+      fmt.Println("Error reading script length", err)
+    }
+    fmt.Println("Script Length: ", Block.BInputScriptLength)
+
+    Block.BInputScriptBytes, err = readInputScriptBytes(int(Block.BInputScriptLength), file)
+    if err != nil {
+      fmt.Println("Error reading script bytes", err)
+    }
+    fmt.Println("Script Bytes: ", Block.BInputScriptBytes)
+
+    Block.BSequenceNumber, err = readSequenceNumber(file)
+    if err != nil {
+      fmt.Println("Error reading sequence number", err)
+    }
+    fmt.Println("Sequence Number: ", Block.BSequenceNumber)
+
+    Block.BOutputCount, err = readOutputCount(file)
+    if err != nil {
+      fmt.Println("Error reading output count", err)
+    }
+    fmt.Println("Output Count: ", Block.BOutputCount)
+
+    Block.BOutputValue, err = readOutputValue(file)
+    if err != nil {
+      fmt.Println("Error reading output value", err)
+    }
+    fmt.Println("Output Value: ", Block.BOutputValue)
+
+    Block.BChallengeScriptLength, err = readChallengeScriptLength(file)
+    if err != nil {
+      fmt.Println("Error reading challenge script length", err)
+    }
+    fmt.Println("Challenge Script Length: ", Block.BChallengeScriptLength)
+
+    Block.BChallengeScriptBytes, err = readChallengeScriptBytes(int(Block.BChallengeScriptLength), file)
+    if err != nil {
+      fmt.Println("Error reading challenge script bytes", err)
+    }
+    fmt.Println("Challenge Script Bytes: ", Block.BChallengeScriptBytes)
+
+    Block.BTransactionLockTime, err = readTransactionLockTime(file)
+    if err != nil {
+      fmt.Println("Error reading transaction lock time", err)
+    }
+    fmt.Println("Transaction Lock Time: ", Block.BTransactionLockTime)
+
+
 
 
 
