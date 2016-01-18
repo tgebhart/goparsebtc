@@ -7,8 +7,9 @@ import (
     "fmt"
     "log"
     "os"
+    "flag"
+    "strconv"
 )
-
 
 type Block struct {
   BMagicNumber uint32
@@ -89,6 +90,8 @@ type Blockchain interface {
 
 }
 
+var byteCount int
+
 func readMagicNumber(file *os.File) (uint32, error) {
 
   var magicNumber uint32
@@ -105,7 +108,7 @@ func readMagicNumber(file *os.File) (uint32, error) {
 }
 
 func validateMagicNumber(magicNumber uint32) (bool) {
-  if magicNumber == 3652501241 {
+  if magicNumber == 3652501241 || magicNumber == 4190024921 {
     return true
   }
   return false
@@ -122,6 +125,7 @@ func readBlockLength(file *os.File) (uint32, error) {
   if validateBlockLength(blockLength) {
       return blockLength, nil
   }
+  log.Print(b)
   return 0, errors.New("Very large (or no) block length")
 }
 
@@ -317,11 +321,13 @@ func readSequenceNumber(file *os.File) (uint32, error) {
   if validateSequenceNumber(sequenceNumber) {
     return sequenceNumber, nil
   }
+  fmt.Println("sequence b: ", b)
+  fmt.Println("sequence: ", sequenceNumber)
   return 0, errors.New("Invalid sequence number")
 }
 
 func validateSequenceNumber(sequenceNumber uint32) (bool) {
-  if sequenceNumber == 4294967295 {  //current largest sequence number
+  if sequenceNumber <= 4294967295 {  //current largest sequence number
     return true
   }
   return false
@@ -401,7 +407,205 @@ func getTransactions(transactionLength uint64, file *os.File) (error) {
   return nil
 }
 
+func resetBlockHeadPointer(blockLength uint32, bytesUsed int, file *os.File) (error) {
+  fmt.Print(bytesUsed, " ", blockLength)
+  if bytesUsed <= int(blockLength) {
+    readNextBytes(file, int(blockLength) - bytesUsed)
+    return nil
+  }
+  return errors.New("used more bytes than listed in blocklength")
+}
 
+
+
+
+/***************************OUTER LOOPS****************************************/
+
+func parseIndividualBlock(Block Block, file *os.File) error {
+
+  bmagicNumber, err := readMagicNumber(file)
+  if err != nil {
+    fmt.Println("No magic number recovered", err)
+    return err
+  }
+  fmt.Println("Magic Number: ", Block.BMagicNumber)
+  Block.BMagicNumber = bmagicNumber
+
+  Block.BBlockLength, err = readBlockLength(file)
+  if err != nil {
+    fmt.Println("No blocklength recovered", err)
+    return err
+  }
+  fmt.Println("Block Length: ", Block.BBlockLength)
+
+  byteCount = 0
+
+  Block.BFormatVersion, err = readFormatVersion(file)
+  if err != nil {
+    fmt.Println("Error reading format version", err)
+    return err
+  }
+  fmt.Println("Format Version: ", Block.BFormatVersion)
+
+  Block.BPreviousBlockHash, err = readPreviousBlockHash(file)
+  if err != nil {
+    fmt.Println("Error reading previous block hash", err)
+    return err
+  }
+  fmt.Println("Previous Block Hash: ", Block.BPreviousBlockHash)
+
+  Block.BMerkleRoot, err = readMerkleRoot(file)
+  if err != nil {
+    fmt.Println("Error reading merkle root", err)
+    return err
+  }
+  fmt.Println("Merkle Root: ", Block.BMerkleRoot)
+
+  Block.BTimeStamp, err = readTimeStamp(file)
+  if err != nil {
+    fmt.Println("Error reading timestamp", err)
+    return err
+  }
+  fmt.Println("Time Stamp: ", Block.BTimeStamp)
+
+  Block.BTargetValue, err = readTargetValue(file)
+  if err != nil {
+    fmt.Println("Error reading target value", err)
+    return err
+  }
+  fmt.Println("Target Value: ", Block.BTargetValue)
+
+  Block.BNonce, err = readNonce(file)
+  if err != nil {
+    fmt.Println("Error reading nonce", err)
+    return err
+  }
+  fmt.Println("Nonce: ", Block.BNonce)
+
+  Block.BTransactionLength, err = readTransactionLength(file)
+  if err != nil {
+    fmt.Println("Error reading transaction length", err)
+    return err
+  }
+  fmt.Println("Transaction Length: ", Block.BTransactionLength)
+
+/*===============================Transactions=================================
+ ============================================================================*/
+
+  for transactionIndex := 1; transactionIndex <= int(Block.BTransactionLength); transactionIndex++ {
+
+    fmt.Println(" ========== Transaction ", transactionIndex, " of ", int(Block.BTransactionLength), " ============")
+
+    Block.BTransactionVersionNumber, err = readTransactionVersion(file)
+    if err != nil {
+      fmt.Println("Error reading transaction version number", err)
+      return err
+    }
+    fmt.Println("Transaction Version: ", Block.BTransactionVersionNumber)
+
+    Block.BInputCount, err = readInputCount(file)
+    if err != nil {
+      fmt.Println("Error reading input count", err)
+      return err
+    }
+    fmt.Println("Input Count: ", Block.BInputCount)
+
+/**********************************Inputs**************************************
+ ******************************************************************************/
+
+    for inputIndex := 1; inputIndex <= int(Block.BInputCount); inputIndex++ {
+
+      fmt.Println("**** Input ", inputIndex, " of ", int(Block.BInputCount), " ****")
+
+      Block.BTransactionHash, err = readTransactionHash(file)
+      if err != nil {
+        fmt.Println("Error reading transaction hash", err)
+        return err
+      }
+      fmt.Println("Transaction Hash: ", Block.BTransactionHash)
+
+      Block.BTransactionIndex, err = readTransactionIndex(file)
+      if err != nil {
+        fmt.Println("Error reading transaction index", err)
+        return err
+      }
+      fmt.Println("Transaction Index: ", Block.BTransactionIndex)
+
+      Block.BInputScriptLength, err = readInputScriptLength(file)
+      if err != nil {
+        fmt.Println("Error reading script length", err)
+        return err
+      }
+      fmt.Println("Script Length: ", Block.BInputScriptLength)
+
+      Block.BInputScriptBytes, err = readInputScriptBytes(int(Block.BInputScriptLength), file)
+      if err != nil {
+        fmt.Println("Error reading script bytes", err)
+        return err
+      }
+      fmt.Println("Script Bytes: ", Block.BInputScriptBytes)
+
+      Block.BSequenceNumber, err = readSequenceNumber(file)
+      if err != nil {
+        fmt.Println("Error reading sequence number", err)
+        return err
+      }
+      fmt.Println("Sequence Number: ", Block.BSequenceNumber)
+
+    }
+
+    Block.BOutputCount, err = readOutputCount(file)
+    if err != nil {
+      fmt.Println("Error reading output count", err)
+      return err
+    }
+    fmt.Println("Output Count: ", Block.BOutputCount)
+
+/**********************************Outputs*************************************
+ ******************************************************************************/
+
+    for outputIndex := 1; outputIndex <= int(Block.BOutputCount); outputIndex++ {
+
+      fmt.Println("**** Output " , outputIndex, " of ", int(Block.BOutputCount), " ****")
+
+      Block.BOutputValue, err = readOutputValue(file)
+      if err != nil {
+        fmt.Println("Error reading output value", err)
+        return err
+      }
+      fmt.Println("Output Value: ", Block.BOutputValue)
+
+      Block.BChallengeScriptLength, err = readChallengeScriptLength(file)
+      if err != nil {
+        fmt.Println("Error reading challenge script length", err)
+        return err
+      }
+      fmt.Println("Challenge Script Length: ", Block.BChallengeScriptLength)
+
+      Block.BChallengeScriptBytes, err = readChallengeScriptBytes(int(Block.BChallengeScriptLength), file)
+      if err != nil {
+        fmt.Println("Error reading challenge script bytes", err)
+        return err
+      }
+      fmt.Println("Challenge Script Bytes: ", Block.BChallengeScriptBytes)
+
+    }
+    Block.BTransactionLockTime, err = readTransactionLockTime(file)
+    if err != nil {
+      fmt.Println("Error reading transaction lock time", err)
+      return err
+    }
+    fmt.Println("Transaction Lock Time: ", Block.BTransactionLockTime)
+  }
+
+  err = resetBlockHeadPointer(Block.BBlockLength, byteCount, file)
+  if err != nil {
+    fmt.Println("Error in resetting block head pointer", err)
+  }
+  return nil
+
+
+}
 
 
 
@@ -409,160 +613,106 @@ func getTransactions(transactionLength uint64, file *os.File) (error) {
 /******************************MAIN********************************************/
 
 func main() {
-    path := "/Users/tgebhart/Library/Application Support/Bitcoin/blocks/blk00000.dat"
+  path := "/Users/tgebhart/Library/Application Support/Bitcoin/blocks/"
+  flag.Parse()
+    s := flag.Arg(0)
+    numberOfFiles, err := strconv.Atoi(s)
+    if err != nil {
+        fmt.Println(err)
+        os.Exit(2)
+    }
+  for j := 0; j < numberOfFiles; j++ {
+    path = "/Users/tgebhart/Library/Application Support/Bitcoin/blocks/"
+    e := strconv.Itoa(j)
+    tempString := e
+    for k := len(e); k < 5; k++ {
+      tempString = "0" + tempString
+    }
+    path = path + "blk" + tempString + ".dat"
 
     file, err := os.Open(path)
     if err != nil {
         log.Fatal("Error while opening file", err)
     }
-
-    defer file.Close()
-
     fmt.Printf("%s opened\n", path)
-
     Block := Block{}
-    Block.BMagicNumber, err = readMagicNumber(file)
-    if err != nil {
-      fmt.Println("No magic number recovered", err)
+    err = nil
+    for err == nil {
+      err = parseIndividualBlock(Block, file)
+      if err != nil {
+        log.Println("error in parseIndividualBlock ", err)
+      }
     }
-    fmt.Println("Magic Number: ", Block.BMagicNumber)
-
-    Block.BBlockLength, err = readBlockLength(file)
-    if err != nil {
-      fmt.Println("No blocklength recovered", err)
-    }
-    fmt.Println("Block Length: ", Block.BBlockLength)
-
-    Block.BFormatVersion, err = readFormatVersion(file)
-    if err != nil {
-      fmt.Println("Error reading format version", err)
-    }
-    fmt.Println("Format Version: ", Block.BFormatVersion)
-
-    Block.BPreviousBlockHash, err = readPreviousBlockHash(file)
-    if err != nil {
-      fmt.Println("Error reading previous block hash", err)
-    }
-    fmt.Println("Previous Block Hash: ", Block.BPreviousBlockHash)
-
-    Block.BMerkleRoot, err = readMerkleRoot(file)
-    if err != nil {
-      fmt.Println("Error reading merkle root", err)
-    }
-    fmt.Println("Merkle Root: ", Block.BMerkleRoot)
-
-    Block.BTimeStamp, err = readTimeStamp(file)
-    if err != nil {
-      fmt.Println("Error reading timestamp", err)
-    }
-    fmt.Println("Time Stamp: ", Block.BTimeStamp)
-
-    Block.BTargetValue, err = readTargetValue(file)
-    if err != nil {
-      fmt.Println("Error reading target value", err)
-    }
-    fmt.Println("Target Value: ", Block.BTargetValue)
-
-    Block.BNonce, err = readNonce(file)
-    if err != nil {
-      fmt.Println("Error reading nonce", err)
-    }
-    fmt.Println("Nonce: ", Block.BNonce)
-
-    Block.BTransactionLength, err = readTransactionLength(file)
-    if err != nil {
-      fmt.Println("Error reading transaction length", err)
-    }
-    fmt.Println("Transaction Length: ", Block.BTransactionLength)
-
-    Block.BTransactionVersionNumber, err = readTransactionVersion(file)
-    if err != nil {
-      fmt.Println("Error reading transaction version number", err)
-    }
-    fmt.Println("Transaction Version: ", Block.BTransactionVersionNumber)
-
-    Block.BInputCount, err = readInputCount(file)
-    if err != nil {
-      fmt.Println("Error reading input count", err)
-    }
-    fmt.Println("Input Count: ", Block.BInputCount)
-
-    Block.BTransactionHash, err = readTransactionHash(file)
-    if err != nil {
-      fmt.Println("Error reading transaction hash", err)
-    }
-    fmt.Println("Transaction Hash: ", Block.BTransactionHash)
-
-    Block.BTransactionIndex, err = readTransactionIndex(file)
-    if err != nil {
-      fmt.Println("Error reading transaction index", err)
-    }
-    fmt.Println("Transaction Index: ", Block.BTransactionIndex)
-
-    Block.BInputScriptLength, err = readInputScriptLength(file)
-    if err != nil {
-      fmt.Println("Error reading script length", err)
-    }
-    fmt.Println("Script Length: ", Block.BInputScriptLength)
-
-    Block.BInputScriptBytes, err = readInputScriptBytes(int(Block.BInputScriptLength), file)
-    if err != nil {
-      fmt.Println("Error reading script bytes", err)
-    }
-    fmt.Println("Script Bytes: ", Block.BInputScriptBytes)
-
-    Block.BSequenceNumber, err = readSequenceNumber(file)
-    if err != nil {
-      fmt.Println("Error reading sequence number", err)
-    }
-    fmt.Println("Sequence Number: ", Block.BSequenceNumber)
-
-    Block.BOutputCount, err = readOutputCount(file)
-    if err != nil {
-      fmt.Println("Error reading output count", err)
-    }
-    fmt.Println("Output Count: ", Block.BOutputCount)
-
-    Block.BOutputValue, err = readOutputValue(file)
-    if err != nil {
-      fmt.Println("Error reading output value", err)
-    }
-    fmt.Println("Output Value: ", Block.BOutputValue)
-
-    Block.BChallengeScriptLength, err = readChallengeScriptLength(file)
-    if err != nil {
-      fmt.Println("Error reading challenge script length", err)
-    }
-    fmt.Println("Challenge Script Length: ", Block.BChallengeScriptLength)
-
-    Block.BChallengeScriptBytes, err = readChallengeScriptBytes(int(Block.BChallengeScriptLength), file)
-    if err != nil {
-      fmt.Println("Error reading challenge script bytes", err)
-    }
-    fmt.Println("Challenge Script Bytes: ", Block.BChallengeScriptBytes)
-
-    Block.BTransactionLockTime, err = readTransactionLockTime(file)
-    if err != nil {
-      fmt.Println("Error reading transaction lock time", err)
-    }
-    fmt.Println("Transaction Lock Time: ", Block.BTransactionLockTime)
-
-
-
-
-
-
-
+    defer file.Close()
+  }
 }
 
 
+/**************************FILE FUNCTIONS**************************************/
+
+
 func readNextBytes(file *os.File, number int) []byte {
-    bytes := make([]byte, number)
+  bytes := make([]byte, number)
+  byteCount = byteCount + number
 
-    _, err := file.Read(bytes)
-    if err != nil {
-        log.Fatal(err)
-    }
+  _, err := file.Read(bytes)
+  if err != nil {
+      log.Fatal(err)
+  }
+  return bytes
+}
 
-    return bytes
+func readBinaryToUInt8(b []byte, passedVariable uint32) (error) {
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &passedVariable)
+  return err
+}
+
+func readBinaryToUInt32(b []byte, passedVariable uint32) (error) {
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &passedVariable)
+  return err
+}
+
+func readBinaryToUInt64(b []byte, passedVariable uint32) (error) {
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, &passedVariable)
+  return err
+}
+
+
+
+func readVariableLengthInteger(file *os.File) (uint64, error) {
+
+  var ret uint64
+  var v uint32
+
+  bytes := make([]byte, 1)
+  _, err := file.Read(bytes)
+  if err != nil {
+    return ret, err
+  }
+  if bytes < 0xFD {       // If it's less than 0xFD use this value as the unsigned integer
+    ret = uint64(bytes)
+  } else {
+      bytes = make([]byte, 2)
+      _, err = file.Read(bytes)
+      if err != nil {
+        return ret, err
+      }
+      if bytes < 0xFFFF {
+        ret = uint64(bytes)
+      } else {
+          bytes = make([]byte, 4)
+          v = file.Read(bytes)
+          if v < 0xFFFFFFFF {
+            ret = uint64(v)
+          } else {      // never expect to actually encounter a 64bit integer in the block-chain stream; it's outside of any reasonable expected value
+              bytes = make([]byte, 8)
+              v = file.Read(bytes)
+              ret = uint64(v)
+            }
+          }
+      }
+  return ret
 }
