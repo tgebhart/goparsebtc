@@ -96,8 +96,7 @@ func readMagicNumber(file *os.File) (uint32, error) {
 
   var magicNumber uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &magicNumber)
+  err := readBinaryToUInt32(b, &magicNumber)
   if err != nil {
     fmt.Println("binary.Read failed:", err)
   }
@@ -117,15 +116,13 @@ func validateMagicNumber(magicNumber uint32) (bool) {
 func readBlockLength(file *os.File) (uint32, error) {
   var blockLength uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &blockLength)
+  err := readBinaryToUInt32(b, &blockLength)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
   if validateBlockLength(blockLength) {
       return blockLength, nil
   }
-  log.Print(b)
   return 0, errors.New("Very large (or no) block length")
 }
 
@@ -139,8 +136,7 @@ func validateBlockLength(blockLength uint32) (bool) {
 func readFormatVersion(file *os.File) (uint32, error) {
   var formatVersion uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &formatVersion)
+  err := readBinaryToUInt32(b, &formatVersion)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -161,8 +157,7 @@ func validateFormatVersion(formatVersion uint32) (bool) {
 func readPreviousBlockHash(file *os.File) ([32]uint8, error) {
   var previousBlockHash [32]uint8
   b := readNextBytes(file, 32)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &previousBlockHash)
+  err := readUInt8ByteArrayLength32(b, &previousBlockHash)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -172,8 +167,7 @@ func readPreviousBlockHash(file *os.File) ([32]uint8, error) {
 func readMerkleRoot(file *os.File) ([32]uint8, error) {
   var merkleRoot [32]uint8
   b := readNextBytes(file, 32)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &merkleRoot)
+  err := readUInt8ByteArrayLength32(b, &merkleRoot)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -183,8 +177,7 @@ func readMerkleRoot(file *os.File) ([32]uint8, error) {
 func readTimeStamp(file *os.File) (uint32, error) {
   var timeStamp uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &timeStamp)
+  err := readBinaryToUInt32(b, &timeStamp)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -204,8 +197,7 @@ func validateTimeStamp(timeStamp uint32) (bool) {
 func readTargetValue(file *os.File) (uint32, error) {
   var targetValue uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &targetValue)
+  err := readBinaryToUInt32(b, &targetValue)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -215,8 +207,7 @@ func readTargetValue(file *os.File) (uint32, error) {
 func readNonce(file *os.File) (uint32, error) {
   var nonce uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &nonce)
+  err := readBinaryToUInt32(b, &nonce)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -225,9 +216,7 @@ func readNonce(file *os.File) (uint32, error) {
 
 func readTransactionLength(file *os.File) (uint64, error) {
   var transactionLength uint64
-  b := readNextBytes(file, 1)
-  buf := bytes.NewReader(b)
-  transactionLength, err := binary.ReadUvarint(buf)
+  transactionLength, err := readVariableLengthInteger(file)
   if err != nil {
     fmt.Println("binary.ReadUvarint failed: ", err)
   }
@@ -237,8 +226,7 @@ func readTransactionLength(file *os.File) (uint64, error) {
 func readTransactionVersion(file *os.File) (uint32, error) {
   var transactionVersion uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &transactionVersion)
+  err := readBinaryToUInt32(b, &transactionVersion)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -257,9 +245,7 @@ func validateTransactionVersion(transactionVersion uint32) (bool) {
 
 func readInputCount(file *os.File) (uint64, error) {
   var inputCount uint64
-  b := readNextBytes(file, 1)
-  buf := bytes.NewReader(b)
-  inputCount, err := binary.ReadUvarint(buf)
+  inputCount, err := readVariableLengthInteger(file)
   if err != nil {
     fmt.Println("binary.ReadUvarint failed: ", err)
   }
@@ -269,8 +255,7 @@ func readInputCount(file *os.File) (uint64, error) {
 func readTransactionHash(file *os.File) ([32]uint8, error) {
   var transactionHash [32]uint8
   b := readNextBytes(file, 32)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &transactionHash)
+  err := readUInt8ByteArrayLength32(b, &transactionHash)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -280,8 +265,7 @@ func readTransactionHash(file *os.File) ([32]uint8, error) {
 func readTransactionIndex(file *os.File) (uint32, error) {
   var transactionIndex uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &transactionIndex)
+  err := readBinaryToUInt32(b, &transactionIndex)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -290,9 +274,7 @@ func readTransactionIndex(file *os.File) (uint32, error) {
 
 func readInputScriptLength(file *os.File) (uint64, error) {
   var inputScriptLength uint64
-  b := readNextBytes(file, 1)
-  buf := bytes.NewReader(b)
-  inputScriptLength, err := binary.ReadUvarint(buf)
+  inputScriptLength, err := readVariableLengthInteger(file)
   if err != nil {
     fmt.Println("binary.ReadUvarint failed: ", err)
   }
@@ -302,8 +284,7 @@ func readInputScriptLength(file *os.File) (uint64, error) {
 func readInputScriptBytes(inputScriptLength int, file *os.File) ([]uint8, error) {
   var inputScriptBytes = make([]uint8, inputScriptLength)
   b := readNextBytes(file, inputScriptLength)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &inputScriptBytes)
+  err := readUInt8ByteArray(b, &inputScriptBytes)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -313,8 +294,7 @@ func readInputScriptBytes(inputScriptLength int, file *os.File) ([]uint8, error)
 func readSequenceNumber(file *os.File) (uint32, error) {
   var sequenceNumber uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &sequenceNumber)
+  err := readBinaryToUInt32(b, &sequenceNumber)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -335,9 +315,7 @@ func validateSequenceNumber(sequenceNumber uint32) (bool) {
 
 func readOutputCount(file *os.File) (uint64, error) {
   var outputCount uint64
-  b := readNextBytes(file, 1)
-  buf := bytes.NewReader(b)
-  outputCount, err := binary.ReadUvarint(buf)
+  outputCount, err := readVariableLengthInteger(file)
   if err != nil {
     fmt.Println("binary.ReadUvarint failed: ", err)
   }
@@ -347,8 +325,7 @@ func readOutputCount(file *os.File) (uint64, error) {
 func readOutputValue(file *os.File) (uint64, error) {
   var outputValue uint64
   b := readNextBytes(file, 8)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &outputValue)
+  err := readBinaryToUInt64(b, &outputValue)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -357,9 +334,7 @@ func readOutputValue(file *os.File) (uint64, error) {
 
 func readChallengeScriptLength(file *os.File) (uint64, error) {
   var challengeScriptLength uint64
-  b := readNextBytes(file, 1)
-  buf := bytes.NewReader(b)
-  challengeScriptLength, err := binary.ReadUvarint(buf)
+  challengeScriptLength, err := readVariableLengthInteger(file)
   if err != nil {
     fmt.Println("binary.ReadUvarint failed: ", err)
   }
@@ -369,8 +344,7 @@ func readChallengeScriptLength(file *os.File) (uint64, error) {
 func readChallengeScriptBytes(challengeScriptLength int, file *os.File) ([]uint8, error) {
   var challengeScriptBytes = make([]uint8, challengeScriptLength)
   b := readNextBytes(file, challengeScriptLength)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &challengeScriptBytes)
+  err := readUInt8ByteArray(b, &challengeScriptBytes)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -380,8 +354,7 @@ func readChallengeScriptBytes(challengeScriptLength int, file *os.File) ([]uint8
 func readTransactionLockTime(file *os.File) (uint32, error) {
   var transactionLockTime uint32
   b := readNextBytes(file, 4)
-  buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &transactionLockTime)
+  err := readBinaryToUInt32(b, &transactionLockTime)
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
@@ -408,7 +381,6 @@ func getTransactions(transactionLength uint64, file *os.File) (error) {
 }
 
 func resetBlockHeadPointer(blockLength uint32, bytesUsed int, file *os.File) (error) {
-  fmt.Print(bytesUsed, " ", blockLength)
   if bytesUsed <= int(blockLength) {
     readNextBytes(file, int(blockLength) - bytesUsed)
     return nil
@@ -637,7 +609,10 @@ func main() {
     fmt.Printf("%s opened\n", path)
     Block := Block{}
     err = nil
+    var counter = 0
     for err == nil {
+      counter++
+      fmt.Println("++++++++++++++++++++++++++++++++++++ BLOCK ", counter, " +++++++++++++++++++++++++++++++++++++++++++")
       err = parseIndividualBlock(Block, file)
       if err != nil {
         log.Println("error in parseIndividualBlock ", err)
@@ -662,21 +637,39 @@ func readNextBytes(file *os.File, number int) []byte {
   return bytes
 }
 
-func readBinaryToUInt8(b []byte, passedVariable uint32) (error) {
+func readUInt8ByteArray(b []byte, passedVariable *[]uint8) (error) {
   buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &passedVariable)
+  err := binary.Read(buf, binary.LittleEndian, passedVariable)
   return err
 }
 
-func readBinaryToUInt32(b []byte, passedVariable uint32) (error) {
+func readUInt8ByteArrayLength32(b []byte, passedVariable *[32]uint8) (error) {
   buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &passedVariable)
+  err := binary.Read(buf, binary.LittleEndian, passedVariable)
   return err
 }
 
-func readBinaryToUInt64(b []byte, passedVariable uint32) (error) {
+func readBinaryToUInt8(b []byte, passedVariable *uint8) (error) {
   buf := bytes.NewReader(b)
-  err := binary.Read(buf, binary.LittleEndian, &passedVariable)
+  err := binary.Read(buf, binary.LittleEndian, passedVariable)
+  return err
+}
+
+func readBinaryToUInt16(b []byte, passedVariable *uint16) (error) {
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, passedVariable)
+  return err
+}
+
+func readBinaryToUInt32(b []byte, passedVariable *uint32) (error) {
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, passedVariable)
+  return err
+}
+
+func readBinaryToUInt64(b []byte, passedVariable *uint64) (error) {
+  buf := bytes.NewReader(b)
+  err := binary.Read(buf, binary.LittleEndian, passedVariable)
   return err
 }
 
@@ -685,34 +678,63 @@ func readBinaryToUInt64(b []byte, passedVariable uint32) (error) {
 func readVariableLengthInteger(file *os.File) (uint64, error) {
 
   var ret uint64
-  var v uint32
+  var eight uint8
 
   bytes := make([]byte, 1)
   _, err := file.Read(bytes)
   if err != nil {
     return ret, err
   }
-  if bytes < 0xFD {       // If it's less than 0xFD use this value as the unsigned integer
-    ret = uint64(bytes)
+  err = readBinaryToUInt8(bytes, &eight)
+  if err != nil {
+    return ret, err
+  }
+  if eight < 0xFD {       // If it's less than 0xFD use this value as the unsigned integer
+    byteCount++
+    ret = uint64(eight)
   } else {
+      var sixteen uint16
       bytes = make([]byte, 2)
       _, err = file.Read(bytes)
       if err != nil {
         return ret, err
       }
-      if bytes < 0xFFFF {
-        ret = uint64(bytes)
+      err = readBinaryToUInt16(bytes, &sixteen)
+      if err != nil {
+        return ret, err
+      }
+      if sixteen < 0xFFFF {
+        byteCount += 2
+        ret = uint64(sixteen)
       } else {
+          var thirtytwo uint32
           bytes = make([]byte, 4)
-          v = file.Read(bytes)
-          if v < 0xFFFFFFFF {
-            ret = uint64(v)
+          _, err = file.Read(bytes)
+          if err != nil {
+            return ret, err
+          }
+          err = readBinaryToUInt32(bytes, &thirtytwo)
+          if err != nil {
+            return ret, err
+          }
+          if thirtytwo < 0xFFFFFFFF {
+            byteCount += 4
+            ret = uint64(thirtytwo)
           } else {      // never expect to actually encounter a 64bit integer in the block-chain stream; it's outside of any reasonable expected value
+              var sixtyfour uint64
               bytes = make([]byte, 8)
-              v = file.Read(bytes)
-              ret = uint64(v)
+              _, err = file.Read(bytes)
+              if err != nil {
+                return ret, err
+              }
+              err = readBinaryToUInt64(bytes, &sixtyfour)
+              if err != nil {
+                return ret, err
+              }
+              byteCount += 8
+              ret = uint64(sixtyfour)
             }
           }
       }
-  return ret
+  return ret, nil
 }
