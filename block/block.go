@@ -25,6 +25,7 @@ type Block struct {
   BChallengeScriptBytes []uint8
   BTransactionLockTime uint32
   Header Header
+  Transaction Transaction
 }
 
 //Header holds the fields relevant to the block header in byte arrays
@@ -39,25 +40,27 @@ type Header struct {
 
 //Transaction holds fields relevant to each transaction in the block
 type Transaction struct {
-  TTransactionLength uint64
-  TTransactionVersionNumber uint32
-  TInputCount uint64
-  TOutputCount uint64
-  TTransactionLockTime uint32
+  TTransactionLength []byte
+  TTransactionVersionNumber []byte
+  TInputCount []byte
+  TOutputCount []byte
+  TTransactionLockTime []byte
+  Input []Input
+  Output []Output
 }
 
 //Input holds fields related to the block input
 type Input struct {
-  ITransactionHash uint8
-  ITransactionIndex uint32
-  IInputScriptLength uint64
-  IInputScriptBytes []uint8
-  ISequenceNumber uint32
+  ITransactionHash []byte
+  ITransactionIndex []byte
+  IInputScriptLength []byte
+  IInputScriptBytes []byte
+  ISequenceNumber []byte
 }
 
 //Output holds fields related to the block output
 type Output struct {
-  OOutputValue uint64
-  OChallengeScriptLength uint64
-  OChallengeScriptBytes []uint8
+  OOutputValue []byte
+  OChallengeScriptLength []byte
+  OChallengeScriptBytes []byte
 }

@@ -12,58 +12,58 @@ import (
 )
 
 //ResponseBlock holds the blockchain.info response json when querying a block through
-//blockchain.info API. It should be noted that compound names like prevblock are
+//blockchain.info API. It should be noted that compound names like Prevblock are
 //represented as prev_block with underscores. However, underscores are to be avoided
 //in Go.
 type ResponseBlock struct {
-  hash string
-  ver int
-  prevblock string
-  mrklroot string
-  time int
-  bits int
-  fee int
-  nonce int
-  ntx int
-  size int
-  blockindex int
-  mainchain bool
-  height int
-  tx ResponseTransaction
+  Hash string
+  Ver int
+  Prevblock string
+  Mrklroot string
+  Time int
+  Bits int
+  Fee int
+  Nonce int
+  Ntx int
+  Size int
+  Blockindex int
+  Mainchain bool
+  Height int
+  Tx []ResponseTransaction
 }
 
 //ResponseTransaction holds the blockchain.info response json for a given transaction in a block
 type ResponseTransaction struct {
-  locktime int
-  ver int
-  size int
-  inputs ResponseInput
-  time int
-  txindex int
-  vinsz int
-  hash string
-  voutsz int
-  relayedby string
-  out ResponseOutput
+  Locktime int
+  Ver int
+  Size int
+  Inputs []ResponseInput
+  Time int
+  Txindex int
+  Vinsz int
+  Hash string
+  Voutsz int
+  Relayedby string
+  Out []ResponseOutput
 }
 
 //ResponseInput holds the blockchain.info response json for a block's input.
 type ResponseInput struct {
-  sequence int
-  script string
+  Sequence int
+  Script string
 }
 
 //ResponseOutput holds the blockchain.info response json for a block's output.
 //Note that responsetype is returned with key "type" by blockchain.info, but this
 //is a Go reserved word
 type ResponseOutput struct {
-  spent bool
-  txindex int
-  responsetype int
-  addr string
-  value int
-  n int
-  script string
+  Spent bool
+  Txindex int
+  Responsetype int
+  Addr string
+  Value int
+  N int
+  Script string
 }
 
 
@@ -148,7 +148,7 @@ func narcolepsy() {
 
 //BlockChainInfoValidation calls blockchain.info and checks the block for near-real-time error-checking
 func BlockChainInfoValidation(Block *block.Block) (error) {
-  data := map[string]interface{}{}
+  ResponseBlock := ResponseBlock{}
   blockHash := ReverseEndian(Block.BBlockHash)
   fmt.Println("block hash", blockHash)
   resp, err := http.Get(BLOCKCHAININFOENDPOINT + blockHash)
@@ -157,9 +157,10 @@ func BlockChainInfoValidation(Block *block.Block) (error) {
   }
   defer resp.Body.Close()
   body, _ := ioutil.ReadAll(resp.Body)
-  json.Unmarshal(body, &data)
+  json.Unmarshal(body, &ResponseBlock)
 
-  if blockHash == data["hash"]{
+  if blockHash == ResponseBlock.Hash {
+    fmt.Println("Height: ", ResponseBlock.Height)
     return nil
   }
   return errors.New("Hashes do not match")

@@ -12,7 +12,7 @@ import (
 )
 
 //CHECKEVERY determines how many blocks go unchecked before we check the next block using blockchain.info
-var CHECKEVERY = 50
+var CHECKEVERY = 200
 
 /******************************MAIN********************************************/
 

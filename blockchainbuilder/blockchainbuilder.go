@@ -248,7 +248,7 @@ func readTransactionLockTime(file *os.File) (uint32, error) {
   return 1, errors.New("Invalid Lock Time on Transaction")
 }
 
-//ComputeBlockHash computes the SHA256 double-hash of the
+//ComputeBlockHash computes the SHA256 double-hash of the block header
 func ComputeBlockHash(Block *block.Block) (string, error) {
   hasher := sha256.New()
   slicetwo := append(Block.Header.HPreviousBlockHash[:], Block.Header.HMerkleRoot[:] ...)
@@ -261,6 +261,11 @@ func ComputeBlockHash(Block *block.Block) (string, error) {
   hasherTwo := sha256.New()
   hasherTwo.Write(slasher)
   return hex.EncodeToString(hasherTwo.Sum(nil)), nil
+}
+
+//ComputeTransactionHash computes the dual-SHA256 hash of a given transaction
+func ComputeTransactionHash(Block *block.Block) (string, error) {
+
 }
 
 
