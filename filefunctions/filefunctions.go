@@ -65,68 +65,73 @@ func ReadBinaryToUInt64(b []byte, passedVariable *uint64) (error) {
 
 
 //ReadVariableLengthInteger reads a variable length integer as described by the bitcoin protocol into an unsigned 8 byte integer
-func ReadVariableLengthInteger(file *os.File) (uint64, error) {
+func ReadVariableLengthInteger(file *os.File) (uint64, []byte, error) {
 
   var ret uint64
   var eight uint8
+  var byteret []byte
 
   bytes := make([]byte, 1)
   _, err := file.Read(bytes)
   if err != nil {
-    return ret, err
+    return ret, nil, err
   }
   err = ReadBinaryToUInt8(bytes, &eight)
   if err != nil {
-    return ret, err
+    return ret, nil, err
   }
   if eight < 0xFD {       // If it's less than 0xFD use this value as the unsigned integer
     byteCount++
     ret = uint64(eight)
+    byteret = bytes
   } else {
       var sixteen uint16
       bytes = make([]byte, 3)
       _, err = file.Read(bytes)
       if err != nil {
-        return ret, err
+        return ret, nil, err
       }
       err = ReadBinaryToUInt16(bytes, &sixteen)
       if err != nil {
-        return ret, err
+        return ret, nil, err
       }
       if sixteen < 0xFFFF {
         byteCount += 3
         ret = uint64(sixteen)
+        byteret = bytes
       } else {
           var thirtytwo uint32
           bytes = make([]byte, 5)
           _, err = file.Read(bytes)
           if err != nil {
-            return ret, err
+            return ret, nil, err
           }
           err = ReadBinaryToUInt32(bytes, &thirtytwo)
           if err != nil {
-            return ret, err
+            return ret, nil, err
           }
           if thirtytwo < 0xFFFFFFFF {
             byteCount += 5
             ret = uint64(thirtytwo)
+            byteret = bytes
           } else {      // never expect to actually encounter a 64bit integer in the block-chain stream; it's outside of any reasonable expected value
               var sixtyfour uint64
               bytes = make([]byte, 9)
               _, err = file.Read(bytes)
               if err != nil {
-                return ret, err
+                return ret, nil, err
               }
               err = ReadBinaryToUInt64(bytes, &sixtyfour)
               if err != nil {
-                return ret, err
+                return ret, nil, err
               }
               byteCount += 9
               ret = uint64(sixtyfour)
+              byteret = bytes
             }
           }
       }
-  return ret, nil
+  return ret, byteret, nil
 }
 
 //ResetBlockHeadPointer points the byte-reader to the next block in the chain

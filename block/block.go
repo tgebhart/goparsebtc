@@ -2,65 +2,86 @@ package block
 
 //Block holds fields for each new block
 type Block struct {
-  BMagicNumber uint32
-  BBlockLength uint32
-  BFormatVersion uint32
-  BPreviousBlockHash string
-  BMerkleRoot string
-  BTimeStamp uint32
-  BTargetValue uint32
-  BNonce uint32
-  BBlockHash string
-  BTransactionCount uint64
-  BTransactionVersionNumber uint32
-  BInputCount uint64
-  BTransactionHash string
-  BTransactionIndex uint32
-  BInputScriptLength uint64
-  BInputScriptBytes []uint8
-  BSequenceNumber uint32
-  BOutputCount uint64
-  BOutputValue uint64
-  BChallengeScriptLength uint64
-  BChallengeScriptBytes []uint8
-  BTransactionLockTime uint32
+  MagicNumber uint32
+  BlockLength uint32
   Header Header
-  Transaction Transaction
+  BlockHash string
+  TransactionCount uint64
+  ByteHeader ByteHeader
+  Transactions []Transaction
+  ByteTransactions []ByteTransaction
 }
 
-//Header holds the fields relevant to the block header in byte arrays
+//Header holds the interpreted Header fields read from the byte stream
 type Header struct {
-  HFormatVersion []byte
-  HPreviousBlockHash []byte
-  HMerkleRoot []byte
-  HTimeStamp []byte
-  HTargetValue []byte
-  HNonce []byte
+  FormatVersion uint32
+  PreviousBlockHash string
+  MerkleRoot string
+  TimeStamp uint32
+  TargetValue uint32
+  Nonce uint32
 }
 
-//Transaction holds fields relevant to each transaction in the block
+//Transaction holds the interpreted Transaction fields read from the byte stream
 type Transaction struct {
-  TTransactionLength []byte
-  TTransactionVersionNumber []byte
-  TInputCount []byte
-  TOutputCount []byte
-  TTransactionLockTime []byte
-  Input []Input
-  Output []Output
+  TransactionHash string
+  TransactionVersionNumber uint32
+  InputCount uint64
+  Inputs []Input
+  OutputCount uint64
+  Outputs []Output
+  TransactionLockTime uint32
 }
 
-//Input holds fields related to the block input
+//Input holds the interpreted Input fields read from the byte stream
 type Input struct {
-  ITransactionHash []byte
-  ITransactionIndex []byte
-  IInputScriptLength []byte
-  IInputScriptBytes []byte
-  ISequenceNumber []byte
+  TransactionHash string
+  TransactionIndex uint32
+  InputScriptLength uint64
+  InputScript string
+  SequenceNumber uint32
 }
 
-//Output holds fields related to the block output
+//Output holds the interpreted Output fields read from the byte stream
 type Output struct {
-  OOutputValue []byte
-  OChallengeScriptLength []byte
-  OChallengeScriptBytes []byte
+  OutputValue uint64
+  ChallengeScriptLength uint64
+  ChallengeScript string
+}
+
+//ByteHeader holds the fields relevant to the block header in byte arrays
+type ByteHeader struct {
+  FormatVersion []byte
+  PreviousBlockHash []byte
+  MerkleRoot []byte
+  TimeStamp []byte
+  TargetValue []byte
+  Nonce []byte
+}
+
+//ByteTransaction holds fields relevant to each transaction in byte arrays
+type ByteTransaction struct {
+  TransactionLength []byte
+  TransactionVersionNumber []byte
+  InputCount []byte
+  OutputCount []byte
+  Inputs []ByteInput
+  Outputs []ByteOutput
+  TransactionLockTime []byte
+}
+
+//ByteInput holds fields related to the block input in byte arrays
+type ByteInput struct {
+  TransactionHash []byte
+  TransactionIndex []byte
+  InputScriptLength []byte
+  InputScriptBytes []byte
+  SequenceNumber []byte
+}
+
+//ByteOutput holds fields related to the block output in byte arrays
+type ByteOutput struct {
+  OutputValue []byte
+  ChallengeScriptLength []byte
+  ChallengeScriptBytes []byte
 }

@@ -149,7 +149,7 @@ func narcolepsy() {
 //BlockChainInfoValidation calls blockchain.info and checks the block for near-real-time error-checking
 func BlockChainInfoValidation(Block *block.Block) (error) {
   ResponseBlock := ResponseBlock{}
-  blockHash := ReverseEndian(Block.BBlockHash)
+  blockHash := ReverseEndian(Block.BlockHash)
   fmt.Println("block hash", blockHash)
   resp, err := http.Get(BLOCKCHAININFOENDPOINT + blockHash)
   if err != nil {
