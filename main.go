@@ -7,7 +7,7 @@ import (
     "flag"
     "strconv"
     "github.com/tgebhart/goparsebtc/blockchainbuilder"
-    "github.com/tgebhart/goparsebtc/blockvalidation"
+    //"github.com/tgebhart/goparsebtc/blockvalidation"
     "github.com/tgebhart/goparsebtc/block"
 )
 
@@ -50,15 +50,16 @@ func main() {
       if err != nil {
         log.Println("error in parseIndividualBlock ", err)
       }
-      if blockCounter % CHECKEVERY == 0 {
-        fmt.Println("?? Checking Block ??")
-        err = blockvalidation.BlockChainInfoValidation(&Block)
-      }
-      if err != nil {
-        log.Fatal("error in blockchain.info validation")
-      }
+      //if blockCounter % CHECKEVERY == 0 {
+        //fmt.Println("?? Checking Block ??")
+        //err = blockvalidation.BlockChainInfoValidation(&Block)
+      //}
+      //if err != nil {
+        //log.Fatal("error in blockchain.info validation")
+      //}
       blockCounter++
     }
+    fmt.Println("Closing file...")
     defer file.Close()
   }
 }

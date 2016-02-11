@@ -7,7 +7,7 @@ import (
     "github.com/tgebhart/goparsebtc/block"
     "github.com/tgebhart/goparsebtc/filefunctions"
     "github.com/tgebhart/goparsebtc/blockvalidation"
-    "crypto/sha256"
+    "github.com/tgebhart/goparsebtc/btchashing"
     "encoding/hex"
 )
 
@@ -40,6 +40,17 @@ func readMagicNumber(file *os.File) (uint32, error) {
   if blockvalidation.ValidateMagicNumber(magicNumber) {
     return magicNumber, nil
   }
+  if magicNumber == 0 {
+    b = filefunctions.LookForMagic(file)
+    err := filefunctions.ReadBinaryToUInt32(b, &magicNumber)
+    if err != nil {
+      fmt.Println("failed to find MagicNumber from zeros: ", err)
+    }
+    if blockvalidation.ValidateMagicNumber(magicNumber) {
+      return magicNumber, nil
+    }
+  }
+  fmt.Println("bad magic number", magicNumber)
   return 0, errors.New("unusual or invalid magic number value")
 }
 
@@ -162,6 +173,13 @@ func readTransactionIndex(file *os.File) (uint32, []byte, error) {
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
+  if blockvalidation.ValidateTransactionIndex(transactionIndex) {
+    return transactionIndex, b, nil
+  }
+  b, err = filefunctions.RewindAndRead32(b, file, &transactionIndex)
+  if err != nil {
+    fmt.Println("rewind read failed: ", err)
+  }
   return transactionIndex, b, nil
 }
 
@@ -213,6 +231,13 @@ func readOutputValue(file *os.File) (uint64, []byte, error) {
   if err != nil {
     fmt.Println("binary.Read failed: ", err)
   }
+  if blockvalidation.ValidateOutputValue(outputValue) {
+    return outputValue, b, nil
+  }
+  b, err = filefunctions.RewindAndRead64(b, file, &outputValue)
+  if err != nil {
+    fmt.Println("rewind read failed: ", err)
+  }
   return outputValue, b, nil
 }
 
@@ -248,65 +273,6 @@ func readTransactionLockTime(file *os.File) (uint32, []byte, error) {
   return 1, nil, errors.New("Invalid Lock Time on Transaction")
 }
 
-//ComputeBlockHash computes the SHA256 double-hash of the block header
-func ComputeBlockHash(Block *block.Block) (string, error) {
-  hasher := sha256.New()
-  slicetwo := append(Block.ByteHeader.PreviousBlockHash[:], Block.ByteHeader.MerkleRoot[:] ...)
-  slicethree := append(Block.ByteHeader.TimeStamp[:], Block.ByteHeader.TargetValue[:] ...)
-  slicefour := append(slicethree[:], Block.ByteHeader.Nonce[:] ...)
-  slicetwofour := append(slicetwo[:], slicefour[:] ...)
-  kimbo := append(Block.ByteHeader.FormatVersion, slicetwofour ...)
-  hasher.Write(kimbo)
-  slasher := hasher.Sum(nil)
-  hasherTwo := sha256.New()
-  hasherTwo.Write(slasher)
-  return hex.EncodeToString(hasherTwo.Sum(nil)), nil
-}
-
-//ComputeTransactionHash computes the dual-SHA256 hash of a given transaction
-func ComputeTransactionHash(Transaction *block.ByteTransaction, inputCount uint64, outputCount uint64) (string, error) {
-  hasher := sha256.New()
-  var inputBytes []byte
-  var outputBytes []byte
-  for i := 0; i < int(inputCount); i++ {
-    inputBytes = append(inputBytes[:], combineInputBytes(&Transaction.Inputs[i])[:] ...)
-  }
-  for o := 0; o < int(outputCount); o++ {
-    fmt.Println("Outputcount: ", int(outputCount))
-    outputBytes = append(outputBytes[:], combineOutputBytes(&Transaction.Outputs[o])[:] ...)
-  }
-  sliceone := append(Transaction.TransactionVersionNumber[:], Transaction.InputCount[:] ...)
-  slicetwo := append(inputBytes[:], Transaction.OutputCount[:] ...)
-  slicethree := append(slicetwo[:], outputBytes[:] ...)
-  sliceonethree := append(sliceone[:], slicethree[:] ...)
-  kimbo := append(sliceonethree[:], Transaction.TransactionLockTime[:] ...)
-  hasher.Write(kimbo)
-  slasher := hasher.Sum(nil)
-  hasherTwo := sha256.New()
-  hasherTwo.Write(slasher)
-  return hex.EncodeToString(hasherTwo.Sum(nil)), nil
-}
-
-func combineInputBytes(Input *block.ByteInput) ([]byte) {
-  var inputBytes []byte
-  sliceone := append(Input.TransactionHash[:], Input.TransactionIndex[:] ...)
-  slicetwo := append(Input.InputScriptLength[:], Input.InputScriptBytes[:] ...)
-  slicethree := append(sliceone[:], slicetwo[:] ...)
-  inputBytes = append(slicethree[:], Input.SequenceNumber[:] ...)
-  return inputBytes
-}
-
-func combineOutputBytes(Output *block.ByteOutput) ([]byte) {
-  var outputBytes []byte
-  sliceone := append(Output.OutputValue[:], Output.ChallengeScriptLength[:] ...)
-  outputBytes = append(sliceone[:], Output.ChallengeScriptBytes[:] ...)
-  return outputBytes
-}
-
-//ParseAddressFromOutputScript parses an output's script to determine address hash
-func ParseAddressFromOutputScript(Output *block.ByteOutput) (string, error) {
-
-}
 
 
 /***************************OUTER LOOPS****************************************/
@@ -374,7 +340,7 @@ func ParseIndividualBlock(Block *block.Block, file *os.File) (error) {
   }
   fmt.Println("Nonce: ", Block.Header.Nonce)
 
-  Block.BlockHash, err = ComputeBlockHash(Block)
+  Block.BlockHash, err = btchashing.ComputeBlockHash(Block)
   if err != nil {
     fmt.Println("Error computing block hash", err)
     return err
@@ -434,14 +400,14 @@ func ParseIndividualBlock(Block *block.Block, file *os.File) (error) {
         fmt.Println("Error reading transaction index", err)
         return err
       }
-      fmt.Println("Transaction Index: ", Block.Transactions[transactionIndex].Inputs[inputIndex].TransactionIndex)
+      fmt.Println("Transaction Index: ", Block.Transactions[transactionIndex].Inputs[inputIndex].TransactionIndex, Block.ByteTransactions[transactionIndex].Inputs[inputIndex].TransactionIndex)
 
       Block.Transactions[transactionIndex].Inputs[inputIndex].InputScriptLength, Block.ByteTransactions[transactionIndex].Inputs[inputIndex].InputScriptLength, err = readInputScriptLength(file)
       if err != nil {
         fmt.Println("Error reading script length", err)
         return err
       }
-      fmt.Println("Script Length: ", Block.Transactions[transactionIndex].Inputs[inputIndex].InputScriptLength)
+      fmt.Println("Script Length: ", Block.Transactions[transactionIndex].Inputs[inputIndex].InputScriptLength, Block.ByteTransactions[transactionIndex].Inputs[inputIndex].InputScriptLength)
 
       Block.Transactions[transactionIndex].Inputs[inputIndex].InputScript, Block.ByteTransactions[transactionIndex].Inputs[inputIndex].InputScriptBytes, err = readInputScriptBytes(int(Block.Transactions[transactionIndex].Inputs[inputIndex].InputScriptLength), file)
       if err != nil {
@@ -481,23 +447,41 @@ func ParseIndividualBlock(Block *block.Block, file *os.File) (error) {
         fmt.Println("Error reading output value", err)
         return err
       }
-      fmt.Println("Output Value: ", Block.Transactions[transactionIndex].Outputs[outputIndex].OutputValue)
+      fmt.Println("Output Value: ", Block.Transactions[transactionIndex].Outputs[outputIndex].OutputValue, Block.ByteTransactions[transactionIndex].Outputs[outputIndex].OutputValue)
 
       Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptLength, Block.ByteTransactions[transactionIndex].Outputs[outputIndex].ChallengeScriptLength, err = readChallengeScriptLength(file)
       if err != nil {
         fmt.Println("Error reading challenge script length", err)
         return err
       }
-      fmt.Println("Challenge Script Length: ", Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptLength)
+      fmt.Println("Challenge Script Length: ", Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptLength, Block.ByteTransactions[transactionIndex].Outputs[outputIndex].ChallengeScriptLength)
 
-      Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScript, Block.ByteTransactions[transactionIndex].Outputs[outputIndex].ChallengeScriptBytes, err = readChallengeScriptBytes(int(Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptLength), file)
+      Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScript, Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptBytes, err = readChallengeScriptBytes(int(Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptLength), file)
       if err != nil {
         fmt.Println("Error reading challenge script bytes", err)
         return err
       }
       fmt.Println("Challenge Script: ", Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScript)
+      fmt.Println("Bytes: ", Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptBytes)
+      Block.ByteTransactions[transactionIndex].Outputs[outputIndex].ChallengeScript = Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptBytes
+
+      _, err = blockvalidation.ParseOutputScript(&Block.Transactions[transactionIndex].Outputs[outputIndex])
+
+    /*  Block.Transactions[transactionIndex].Outputs[outputIndex].Address, err = btchashing.ParseAddressFromOutputScript(Block.ByteTransactions[transactionIndex].Outputs[outputIndex], Block.Transactions[transactionIndex].Outputs[outputIndex])
+      if err != nil {
+        fmt.Println("Error reading address from output script", err)
+        return err
+      }
+      fmt.Println("Address: ", Block.Transactions[transactionIndex].Outputs[outputIndex].Address)
+*/
+      fmt.Println("Hash160: ", Block.Transactions[transactionIndex].Outputs[outputIndex].Addresses[0].RipeMD160)
+      fmt.Println("Address: ", Block.Transactions[transactionIndex].Outputs[outputIndex].Addresses[0].Address)
+      fmt.Println("PublicKey: ", Block.Transactions[transactionIndex].Outputs[outputIndex].Addresses[0].PublicKey)
 
     }
+
+
+
     Block.Transactions[transactionIndex].TransactionLockTime, Block.ByteTransactions[transactionIndex].TransactionLockTime, err = readTransactionLockTime(file)
     if err != nil {
       fmt.Println("Error reading transaction lock time", err)
@@ -505,7 +489,7 @@ func ParseIndividualBlock(Block *block.Block, file *os.File) (error) {
     }
     fmt.Println("Transaction Lock Time: ", Block.Transactions[transactionIndex].TransactionLockTime)
 
-    Block.Transactions[transactionIndex].TransactionHash, err = ComputeTransactionHash(&Block.ByteTransactions[transactionIndex], Block.Transactions[transactionIndex].InputCount, Block.Transactions[transactionIndex].OutputCount)
+    Block.Transactions[transactionIndex].TransactionHash, err = btchashing.ComputeTransactionHash(&Block.ByteTransactions[transactionIndex], Block.Transactions[transactionIndex].InputCount, Block.Transactions[transactionIndex].OutputCount)
     if err != nil {
       fmt.Println("Error in computing transaction hash", err)
       return err
@@ -513,7 +497,7 @@ func ParseIndividualBlock(Block *block.Block, file *os.File) (error) {
     fmt.Println("Transaction Hash: ", blockvalidation.ReverseEndian(Block.Transactions[transactionIndex].TransactionHash))
   }
 
-  err = filefunctions.ResetBlockHeadPointer(Block.BlockLength, file)
+  _, err = filefunctions.ResetBlockHeadPointer(Block.BlockLength, file)
   if err != nil {
     fmt.Println("Error in resetting block head pointer", err)
   }

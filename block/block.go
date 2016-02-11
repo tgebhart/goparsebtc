@@ -1,5 +1,12 @@
 package block
 
+
+//NullHash serves as default error hash when searching for RipeMD in output scripts
+const NullHash string = "0000000000000000000000000000000000000000"
+
+//MaxMultiSig holds the approximated maximum number of signatures in an output
+const MaxMultiSig uint32 = 10
+
 //Block holds fields for each new block
 type Block struct {
   MagicNumber uint32
@@ -15,6 +22,7 @@ type Block struct {
 //Header holds the interpreted Header fields read from the byte stream
 type Header struct {
   FormatVersion uint32
+  ByteFormatVersion []byte
   PreviousBlockHash string
   MerkleRoot string
   TimeStamp uint32
@@ -47,6 +55,18 @@ type Output struct {
   OutputValue uint64
   ChallengeScriptLength uint64
   ChallengeScript string
+  ChallengeScriptBytes []byte
+  KeyType string
+  Addresses [MaxMultiSig]Address
+}
+
+//Address holds information for a given bitcoin address
+type Address struct {
+  Address string
+  PublicKey string
+  PublicKeyBytes []byte
+  RipeMD160 string
+  Transactions []Transaction
 }
 
 //ByteHeader holds the fields relevant to the block header in byte arrays
@@ -83,5 +103,5 @@ type ByteInput struct {
 type ByteOutput struct {
   OutputValue []byte
   ChallengeScriptLength []byte
-  ChallengeScriptBytes []byte
+  ChallengeScript []byte
 }
