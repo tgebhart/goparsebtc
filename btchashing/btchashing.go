@@ -18,11 +18,11 @@ import (
 //ComputeBlockHash computes the SHA256 double-hash of the block header
 func ComputeBlockHash(Block *block.Block) (string, error) {
   hasher := sha256.New()
-  slicetwo := append(Block.ByteHeader.PreviousBlockHash[:], Block.ByteHeader.MerkleRoot[:] ...)
-  slicethree := append(Block.ByteHeader.TimeStamp[:], Block.ByteHeader.TargetValue[:] ...)
-  slicefour := append(slicethree[:], Block.ByteHeader.Nonce[:] ...)
+  slicetwo := append(Block.Header.BytePreviousBlockHash[:], Block.Header.ByteMerkleRoot[:] ...)
+  slicethree := append(Block.Header.ByteTimeStamp[:], Block.Header.ByteTargetValue[:] ...)
+  slicefour := append(slicethree[:], Block.Header.ByteNonce[:] ...)
   slicetwofour := append(slicetwo[:], slicefour[:] ...)
-  kimbo := append(Block.ByteHeader.FormatVersion, slicetwofour ...)
+  kimbo := append(Block.Header.ByteFormatVersion, slicetwofour ...)
   hasher.Write(kimbo)
   slasher := hasher.Sum(nil)
   hasherTwo := sha256.New()
@@ -31,7 +31,7 @@ func ComputeBlockHash(Block *block.Block) (string, error) {
 }
 
 //ComputeTransactionHash computes the dual-SHA256 hash of a given transaction
-func ComputeTransactionHash(Transaction *block.ByteTransaction, inputCount uint64, outputCount uint64) (string, error) {
+func ComputeTransactionHash(Transaction *block.Transaction, inputCount uint64, outputCount uint64) (string, error) {
   hasher := sha256.New()
   var inputBytes []byte
   var outputBytes []byte
@@ -41,16 +41,22 @@ func ComputeTransactionHash(Transaction *block.ByteTransaction, inputCount uint6
   for o := 0; o < int(outputCount); o++ {
     outputBytes = append(outputBytes[:], combineOutputBytes(&Transaction.Outputs[o])[:] ...)
   }
-  sliceone := append(Transaction.TransactionVersionNumber[:], Transaction.InputCount[:] ...)
-  slicetwo := append(inputBytes[:], Transaction.OutputCount[:] ...)
+  sliceone := append(Transaction.ByteTransactionVersionNumber[:], Transaction.ByteInputCount[:] ...)
+  slicetwo := append(inputBytes[:], Transaction.ByteOutputCount[:] ...)
   slicethree := append(slicetwo[:], outputBytes[:] ...)
   sliceonethree := append(sliceone[:], slicethree[:] ...)
-  kimbo := append(sliceonethree[:], Transaction.TransactionLockTime[:] ...)
+  kimbo := append(sliceonethree[:], Transaction.ByteTransactionLockTime[:] ...)
   hasher.Write(kimbo)
   slasher := hasher.Sum(nil)
   hasherTwo := sha256.New()
   hasherTwo.Write(slasher)
   return hex.EncodeToString(hasherTwo.Sum(nil)), nil
+}
+
+//ComputeCompressedBlockHash truncates a block hash to just the last half of its SHA256 hash
+func ComputeCompressedBlockHash(hash string) (string) {
+  ret := hash[int(len(hash)/2):]
+  return ret
 }
 
 //BitcoinPublicKeyToAddress takes a 65 byte public key found in parsing addresses
@@ -121,19 +127,19 @@ func BitcoinToASCII(address []byte) (string) {
   return base58.HexToBase58(address)
 }
 
-func combineInputBytes(Input *block.ByteInput) ([]byte) {
+func combineInputBytes(Input *block.Input) ([]byte) {
   var inputBytes []byte
-  sliceone := append(Input.TransactionHash[:], Input.TransactionIndex[:] ...)
-  slicetwo := append(Input.InputScriptLength[:], Input.InputScriptBytes[:] ...)
+  sliceone := append(Input.ByteTransactionHash[:], Input.ByteTransactionIndex[:] ...)
+  slicetwo := append(Input.ByteInputScriptLength[:], Input.ByteInputScript[:] ...)
   slicethree := append(sliceone[:], slicetwo[:] ...)
-  inputBytes = append(slicethree[:], Input.SequenceNumber[:] ...)
+  inputBytes = append(slicethree[:], Input.ByteSequenceNumber[:] ...)
   return inputBytes
 }
 
-func combineOutputBytes(Output *block.ByteOutput) ([]byte) {
+func combineOutputBytes(Output *block.Output) ([]byte) {
   var outputBytes []byte
-  sliceone := append(Output.OutputValue[:], Output.ChallengeScriptLength[:] ...)
-  outputBytes = append(sliceone[:], Output.ChallengeScript[:] ...)
+  sliceone := append(Output.ByteOutputValue[:], Output.ByteChallengeScriptLength[:] ...)
+  outputBytes = append(sliceone[:], Output.ChallengeScriptBytes[:] ...)
   return outputBytes
 }
 

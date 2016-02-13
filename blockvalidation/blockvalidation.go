@@ -246,6 +246,13 @@ func ValidateTimeStamp(timeStamp uint32) (bool) {
   return false
 }
 
+//ConvertUnixEpochToDate converts the integer timestamp to a time.Time object to output
+func ConvertUnixEpochToDate(timeStamp uint32) (time.Time) {
+  stamp64 := int64(timeStamp)
+  ret := time.Unix(stamp64, 0)
+  return ret
+}
+
 //ValidateTransactionVersion checks transaction version. Should be equal to 1 currently
 func ValidateTransactionVersion(transactionVersion uint32) (bool) {
   if transactionVersion == 1 {  //current transaction version
