@@ -4,11 +4,12 @@ import (
     "fmt"
     "log"
     "os"
+    "io"
     "flag"
     "strconv"
     "github.com/tgebhart/goparsebtc/blockchainbuilder"
-    //"github.com/tgebhart/goparsebtc/blockvalidation"
     "github.com/tgebhart/goparsebtc/block"
+    "github.com/tgebhart/goparsebtc/filefunctions"
 )
 
 //CHECKEVERY determines how many blocks go unchecked before we check the next block using blockchain.info
@@ -20,19 +21,26 @@ func main() {
   path := "/Users/tgebhart/Library/Application Support/Bitcoin/blocks/"
   flag.Parse()
     s := flag.Arg(0)
-    dumpLocation := flag.Arg(1)
-    numberOfFiles, err := strconv.Atoi(s)
+    f := flag.Arg(1)
+    dumpLocation := flag.Arg(2)
+    start, err := strconv.Atoi(s)
     if err != nil {
-        fmt.Println(err)
-        os.Exit(2)
+      fmt.Println(err)
+      os.Exit(2)
+    }
+    finish, err := strconv.Atoi(f)
+    if err != nil {
+      fmt.Println(err)
+      os.Exit(2)
     }
 
   var blockCounter = 0
+  var bytesRead = 0
 
-  Blockchain :=  blockchainbuilder.NewBlockchain()
-  var keys []string
+  chain :=  blockchainbuilder.NewBlockchain()
+  var key string
 
-  for j := 0; j < numberOfFiles; j++ {
+  for j := start; j <= finish; j++ {
     path = "/Users/tgebhart/Library/Application Support/Bitcoin/blocks/"
     e := strconv.Itoa(j)
     tempString := e
@@ -51,17 +59,24 @@ func main() {
     err = nil
     for err == nil {
       fmt.Println("++++++++++++++++++++++++++++++++++++ BLOCK ", blockCounter, " +++++++++++++++++++++++++++++++++++++++++++")
-      err = Blockchain.ParseIndividualBlock(&Block, file)
+      err = chain.ParseIndividualBlock(&Block, file)
       if err != nil {
-        log.Println("error in parseIndividualBlock ", err)
+        if err == io.EOF { //reached end of file
+          fmt.Println("EOF, opening next file")
+          break
+        }
+        if err == blockchainbuilder.ErrBadMagic {
+          log.Fatal(err)
+        }
+        log.Fatal("error in parseIndividualBlock ", err)
       }
-      keys = append(keys, Block.HashBlock.CompressedBlockHash)
+      key = Block.HashBlock.CompressedBlockHash
       Block.HashBlock.FileEndpoint = pathEndpoint
       Block.HashBlock.RawBlockNumber = blockCounter
 
       //Add HashBlock to Blockchain hashmap
-      Blockchain.BlockMap[Block.HashBlock.CompressedBlockHash] = Block.HashBlock
-      fmt.Println(Block.HashBlock)
+      chain.BlockMap[Block.HashBlock.CompressedBlockHash] = Block.HashBlock
+
       //if blockCounter % CHECKEVERY == 0 {
         //fmt.Println("?? Checking Block ??")
         //err = blockvalidation.BlockChainInfoValidation(&Block)
@@ -69,14 +84,16 @@ func main() {
       //if err != nil {
         //log.Fatal("error in blockchain.info validation")
       //}
+      bytesRead += filefunctions.GetByteCount()
       blockCounter++
     }
-    fmt.Println("Closing file...")
+    fmt.Println("Bytes read: ", bytesRead)
+    fmt.Println("Closing file...", path)
     defer file.Close()
   }
 
   fmt.Println("About to call main write")
-  err = Blockchain.WriteMainChainToFile(keys[len(keys) - 1], Blockchain, dumpLocation)
+  err = chain.WriteMainChainToFile(key, dumpLocation)
   if err != nil {
     log.Fatal(err)
   }

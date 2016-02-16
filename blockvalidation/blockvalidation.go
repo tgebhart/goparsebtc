@@ -232,7 +232,7 @@ func ValidateBlockLength(blockLength uint32) (bool) {
 
 //ValidateFormatVersion checks the block's format version (should be 1 for now)
 func ValidateFormatVersion(formatVersion uint32) (bool) {
-  if formatVersion == 1 {  //format version should still be 1 for now
+  if formatVersion == 1 || formatVersion == 2 {  //format version should still be 1 for now
     return true
   }
   return false
@@ -287,7 +287,7 @@ func ValidateOutputValue(outputValue uint64) (bool) {
 
 //ValidateTransactionLockTime checks transaction lock time is equal to 0
 func ValidateTransactionLockTime(transactionLockTime uint32) (bool) {
-  if transactionLockTime == 0 {
+  if transactionLockTime <= SatoshiConst && transactionLockTime != 16777216 {
     return true
   }
   return false
@@ -400,9 +400,9 @@ func ParseOutputScript(output *block.Output) (string, error) {
         }
       }
     }
-    if output.Addresses[0].PublicKey == "" {
-      fmt.Println("FAILED TO LOCATE PUBLIC KEY")
-    }
+    //if output.Addresses[0].PublicKey == "" {
+    //  fmt.Println("FAILED TO LOCATE PUBLIC KEY")
+    //}
   } else {
     fmt.Println("Block may have zero byte length output script")
   }
@@ -414,7 +414,7 @@ func ParseOutputScript(output *block.Output) (string, error) {
       output.Addresses[0].PublicKey = NullKey
     }
     output.KeyType = RipeMD160Key
-    fmt.Println("WARNING : Failed to decode public key in output script ")
+    //fmt.Println("WARNING : Failed to decode public key in output script ")
   }
 
   switch keytype {
@@ -438,7 +438,7 @@ func ParseOutputScript(output *block.Output) (string, error) {
     output.KeyType = keytype
     return output.KeyType, nil
   case TruncatedCompressedKey:
-    var tempkey []byte
+    tempkey := make([]byte, 1)
     tempkey[0] = 0x2
     key := append(tempkey[:], output.Addresses[0].PublicKey[:] ...)
     btchashing.BitcoinCompressedPublicKeyToAddress(key, &output.Addresses[0])
