@@ -1,7 +1,5 @@
 package block
 
-import "os"
-
 
 //NullHash serves as default error hash when searching for RipeMD in output scripts
 const NullHash string = "0000000000000000000000000000000000000000"
@@ -26,10 +24,9 @@ type HashBlock struct {
   CompressedBlockHash string
   BlockHash string
   PreviousCompressedBlockHash string
-  FilePointer *os.File
+  PreviousBlockHash string
   ByteOffset int
   ParsedBlockLength uint32
-  PreviousBlockHash string
   RawBlockNumber int
 }
 

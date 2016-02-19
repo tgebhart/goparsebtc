@@ -9,6 +9,7 @@ import (
   "io/ioutil"
   "encoding/json"
   "errors"
+  //"log"
   "time"
 )
 
@@ -18,60 +19,64 @@ const MaxReasonableTransactionIndex uint32 = 10000
 //SatoshiConst is Satoshi's transaction index for the genesis block
 const SatoshiConst uint32 = 4294967295
 
+//ErrMultiSig is thrown when we cannot read multisig output script
+var ErrMultiSig = errors.New("unable to parse multisig")
+//ErrReplacementKey is thrown when blockchain.info validation cannot find previous block key
+var ErrReplacementKey = errors.New("could not find replacement key")
 
 //ResponseBlock holds the blockchain.info response json when querying a block through
 //blockchain.info API. It should be noted that compound names like Prevblock are
 //represented as prev_block with underscores. However, underscores are to be avoided
 //in Go.
 type ResponseBlock struct {
-  Hash string
-  Ver int
-  Prevblock string
-  Mrklroot string
-  Time int
-  Bits int
-  Fee int
-  Nonce int
-  Ntx int
-  Size int
-  Blockindex int
-  Mainchain bool
-  Height int
-  Tx []ResponseTransaction
+  Hash string `json:"hash"`
+  Ver int `json:"ver"`
+  Prevblock string `json:"prev_block"`
+  Mrklroot string `json:"mrkl_root"`
+  Time int `json:"time"`
+  Bits int `json:"bits"`
+  Fee int `json:"fee"`
+  Nonce int `json:"nonce"`
+  Ntx int `json:"n_tx"`
+  Size int `json:"size"`
+  Blockindex int `json:"block_index"`
+  Mainchain bool `json:"main_chain"`
+  Height int `json:"height"`
+  Tx []ResponseTransaction `json:"tx"`
 }
 
 //ResponseTransaction holds the blockchain.info response json for a given transaction in a block
 type ResponseTransaction struct {
-  Locktime int
-  Ver int
-  Size int
-  Inputs []ResponseInput
-  Time int
-  Txindex int
-  Vinsz int
-  Hash string
-  Voutsz int
-  Relayedby string
-  Out []ResponseOutput
+  Locktime int `json:"lock_time"`
+  Ver int `json:"ver"`
+  Size int `json:"size"`
+  Inputs []ResponseInput `json:"inputs"`
+  Time int `json:"time"`
+  Txindex int `json:"tx_index"`
+  Vinsz int `json:"vin_sz"`
+  Hash string `json:"hash"`
+  Voutsz int `json:"vout_sz"`
+  Relayedby string `json:"relayed_by"`
+  Out []ResponseOutput `json:"out"`
 }
 
 //ResponseInput holds the blockchain.info response json for a block's input.
 type ResponseInput struct {
-  Sequence int
-  Script string
+  Sequence int `json:"sequence"`
+  Script string `json:"script"`
 }
 
 //ResponseOutput holds the blockchain.info response json for a block's output.
 //Note that responsetype is returned with key "type" by blockchain.info, but this
 //is a Go reserved word
 type ResponseOutput struct {
-  Spent bool
-  Txindex int
-  Responsetype int
-  Addr string
-  Value int
-  N int
-  Script string
+  Spent bool `json:"spent"`
+  Txindex int `json:"tx_index"`
+  Responsetype int `json:"type"`
+  Addr string `json:"addr"`
+  Value int `json:"value"`
+  N int `json:"n"`
+  Script string `json:"script"`
 }
 
 //public key types
@@ -232,7 +237,7 @@ func ValidateBlockLength(blockLength uint32) (bool) {
 
 //ValidateFormatVersion checks the block's format version (should be 1 for now)
 func ValidateFormatVersion(formatVersion uint32) (bool) {
-  if formatVersion == 1 || formatVersion == 2 {  //format version should still be 1 for now
+  if formatVersion == 1 || formatVersion == 2 || formatVersion == 3 || formatVersion == 4 {  //format version should still be 1 for now
     return true
   }
   return false
@@ -270,11 +275,11 @@ func ValidateTransactionIndex(transactionIndex uint32) (bool) {
 }
 
 //ValidateSequenceNumber checks to make sure sequence number is below the maximum integer value
-func ValidateSequenceNumber(sequenceNumber uint32) (bool) {
-  if sequenceNumber <= SatoshiConst {  //current largest sequence number
-    return true
+func ValidateSequenceNumber(b []byte) (bool) {
+  if b[0] == 255 && b[1] == 255 && b[2] == 255 && b[3] != 255 {  //current largest sequence number
+    return false
   }
-  return false
+  return true
 }
 
 //ValidateOutputValue checks to see if the parsed output value is withing a reasonable range. If not, could be a read error.
@@ -333,10 +338,20 @@ func ParseOutputScript(output *block.Output) (string, error) {
       expectedSuffix := false
       switch scanbegin {
       case OP0:
+        expectedPrefix = true
+        break
       case OP1:
+        expectedPrefix = true
+        break
       case OP2:
+        expectedPrefix = true
+        break
       case OP3:
+        expectedPrefix = true
+        break
       case OP4:
+        expectedPrefix = true
+        break
       case OP5:
         expectedPrefix = true
         break
@@ -347,9 +362,17 @@ func ParseOutputScript(output *block.Output) (string, error) {
 
       switch scanend {
       case OP1:
+        expectedSuffix = true
+        break
       case OP2:
+        expectedSuffix = true
+        break
       case OP3:
+        expectedSuffix = true
+        break
       case OP4:
+        expectedSuffix = true
+        break
       case OP5:
         expectedSuffix = true
         break
@@ -363,12 +386,13 @@ func ParseOutputScript(output *block.Output) (string, error) {
         scanbegin = output.ChallengeScriptBytes[scanIndex]
         var keyIndex uint8
         for keyIndex < 5 && scanbegin < scanend {
+          fmt.Println("into for loop", scanbegin, scanend)
           if scanbegin == 0x21 {
             output.KeyType = MultiSigKey
             scanIndex++
             scanbegin = output.ChallengeScriptBytes[scanIndex]
             output.Addresses[keyIndex].PublicKeyBytes = output.ChallengeScriptBytes[scanIndex:]
-            scanIndex += 0x21
+            scanbegin += 0x21
             bitMask := 1<<keyIndex
             multiSigFormat|=bitMask
             keyIndex++
@@ -377,15 +401,16 @@ func ParseOutputScript(output *block.Output) (string, error) {
             scanIndex++
             scanbegin = output.ChallengeScriptBytes[scanIndex]
             output.Addresses[keyIndex].PublicKeyBytes = output.ChallengeScriptBytes[scanIndex:]
-            scanIndex += 0x41
+            scanbegin += 0x41
             keyIndex++
           } else {
             break
           }
         }
       }
-      if output.Addresses[0].PublicKey == "" {
-        fmt.Println("MULTI-SIG Warning: Unable to decipher multi-sig output")
+      if output.Addresses[0].PublicKeyBytes == nil {
+        fmt.Println("&&&&&&&&&&&&&&&&&&&&&&&&&&& error multisig &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+        //return "", ErrMultiSig
       }
     } else { //scan for pattern OP_DUP, OP_HASH160, 0x14, 20 bytes, 0x88, 0xac
       if output.ChallengeScriptLength > 25 {
@@ -395,7 +420,8 @@ func ParseOutputScript(output *block.Output) (string, error) {
           if scan[0] == OPDUP && scan[1] == OPHASH160 && scan[2] == 20 && scan[23] == OPEQUALVERIFY && scan[24] == OPCHECKSIG {
             output.Addresses[0].PublicKeyBytes = scan[3:]
             output.KeyType = RipeMD160Key
-            fmt.Println("WARNING: Unusual output script in scan")
+            //fmt.Println("WARNING: Unusual output script in scan")
+
           }
         }
       }
@@ -506,4 +532,35 @@ func BlockChainInfoValidation(Block *block.Block) (error) {
     return nil
   }
   return errors.New("Hashes do not match")
+}
+
+//GetReplacementKey returns blockchain.info's reported previous block hash given the parameter block hash
+func GetReplacementKey(hash string) (string, string, error) {
+  blockHash := hash
+  fmt.Println("Looking for previous block hash ...")
+  resp, err := http.Get(BLOCKCHAININFOENDPOINT + blockHash)
+  if err != nil {
+    return "", "", err
+  }
+  defer resp.Body.Close()
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    panic(err.Error())
+  }
+  tx, err := getTxs([]byte(body))
+  fmt.Println("prevblock" , tx.Prevblock)
+  if tx.Prevblock != "" {
+    return tx.Prevblock, tx.Hash, nil
+  }
+
+  return "", "", ErrReplacementKey
+}
+
+func getTxs(body []byte) (*ResponseBlock, error) {
+  var r = new(ResponseBlock)
+  err := json.Unmarshal(body, &r)
+  if err != nil {
+    fmt.Println("couldn't unmarshal", err)
+  }
+  return r, nil
 }

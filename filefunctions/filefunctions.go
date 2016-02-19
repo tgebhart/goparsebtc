@@ -32,14 +32,15 @@ func ReadNextBytes(file *os.File, number int) ([]byte, error) {
 func RewindAndRead64(b []byte, file *os.File, outputValue *uint64) ([]byte, error) {
   var secondTryLen int64 = 7
     bytesTwo := make([]byte, secondTryLen)
-    ByteCount = ByteCount - (int(secondTryLen) + 1)
+    ByteCount = ByteCount - int(secondTryLen) - 1
 
     _, _ = file.Seek(-(secondTryLen + 1), 1)
     _, err := file.Read(bytesTwo)
     if err != nil {
       return nil, err
     }
-    ByteCount = ByteCount + len(bytesTwo)
+    bytesTwo = append(bytesTwo[:], []byte{0} ...)
+    ByteCount = ByteCount + int(secondTryLen) + 1
     ReadBinaryToUInt64(bytesTwo, outputValue)
     return bytesTwo, nil
 }
@@ -298,12 +299,12 @@ func ReadVariableLengthIntegerBig(file *os.File) (uint64, []byte, error) {
 //ResetBlockHeadPointer points the byte-reader to the next block in the chain
 func ResetBlockHeadPointer(blockLength uint32, file *os.File) ([]byte, error) {
   if ByteCount <= int(blockLength) {
-    println("file forward", int(blockLength), " ",  ByteCount, " ", int(blockLength) - ByteCount)
     bytes := make([]byte, int(blockLength) - ByteCount)
     _, err := file.Read(bytes)
     if err != nil {
         return nil, err
     }
+    ByteCount = int(blockLength)
     return bytes, nil
   }
   return nil, errors.New("used more bytes than listed in blocklength")

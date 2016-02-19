@@ -10,6 +10,7 @@ import (
     "github.com/tgebhart/goparsebtc/blockchainbuilder"
     "github.com/tgebhart/goparsebtc/block"
     "github.com/tgebhart/goparsebtc/filefunctions"
+    "github.com/tgebhart/goparsebtc/blockvalidation"
 )
 
 //CHECKEVERY determines how many blocks go unchecked before we check the next block using blockchain.info
@@ -55,26 +56,43 @@ func main() {
         log.Fatal("Error while opening file", err)
     }
     fmt.Printf("%s opened\n", path)
-    Block := block.Block{}
+    defer file.Close()
     err = nil
     for err == nil {
       fmt.Println("++++++++++++++++++++++++++++++++++++ BLOCK ", blockCounter, " +++++++++++++++++++++++++++++++++++++++++++")
-      err = chain.ParseIndividualBlock(&Block, file)
+      Block := block.Block{}
+      err = chain.ParseIndividualBlockSuppressOutput(&Block, file)
       if err != nil {
         if err == io.EOF { //reached end of file
           fmt.Println("EOF, opening next file")
           break
         }
+        if err == blockvalidation.ErrMultiSig {
+          fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n MultiSigErr \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+          err = nil
+          //log.Fatal(err)
+        }
+        if err == blockchainbuilder.ErrBadFormatVersion {
+          fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n Found bad format version \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+          err = nil
+          chain.PrepareSkipBlock(&Block, pathEndpoint, blockCounter, bytesRead, file)
+        }
         if err == blockchainbuilder.ErrBadMagic {
           log.Fatal(err)
         }
-        log.Fatal("error in parseIndividualBlock ", err)
       }
-      key = Block.HashBlock.CompressedBlockHash
+      fmt.Println(blockvalidation.ReverseEndian(Block.BlockHash))
+      if Block.HashBlock.CompressedBlockHash != "" {
+        key = Block.HashBlock.CompressedBlockHash
+      }
       Block.HashBlock.FileEndpoint = pathEndpoint
       Block.HashBlock.RawBlockNumber = blockCounter
+      Block.HashBlock.ByteOffset = bytesRead
 
       //Add HashBlock to Blockchain hashmap
+      if Block.HashBlock.CompressedBlockHash == "" {
+        fmt.Println("ZERO HASH BLOCK AT", Block.HashBlock.PreviousCompressedBlockHash)
+      }
       chain.BlockMap[Block.HashBlock.CompressedBlockHash] = Block.HashBlock
 
       //if blockCounter % CHECKEVERY == 0 {
@@ -89,11 +107,11 @@ func main() {
     }
     fmt.Println("Bytes read: ", bytesRead)
     fmt.Println("Closing file...", path)
-    defer file.Close()
+    file.Close()
   }
 
   fmt.Println("About to call main write")
-  err = chain.WriteMainChainToFile(key, dumpLocation)
+  err = blockchainbuilder.WriteMainChainToFile(chain, key, dumpLocation)
   if err != nil {
     log.Fatal(err)
   }
