@@ -31,7 +31,7 @@ var ErrBadMagic = errors.New("blockchainbuilder: unusual or invalid magic number
 var ErrBadOutputValue = errors.New("blockchainbuilder : unusual output value")
 //ErrBadFormatVersion is thrown when block format version is odd
 var ErrBadFormatVersion = errors.New("Unusual format version")
-
+//ErrWriteToFile is thrown when an error occurs while writing main chain to file
 var ErrWriteToFile = errors.New("WriteToFile: Could not locate previous block hash")
 
 
@@ -409,7 +409,6 @@ func (Blockchain) ParseIndividualBlock(Block *block.Block, file *os.File) (error
   //Update ByteOffset and ParsedBlockLength fields to track where in the file the block ends
   Block.HashBlock.ParsedBlockLength = Block.BlockLength
 
-
   filefunctions.SetByteCount(0)
 
   Block.Header.FormatVersion, Block.Header.ByteFormatVersion, err = readFormatVersion(file)
@@ -658,7 +657,7 @@ func WriteMainChainToFile(chain *Blockchain, currentKey string, filename string)
       nextHash = chain.BlockMap[currentKey].PreviousBlockHash
       currentKey = nextKey
     }
-    err = writer.Write([]string{thisHash, chain.BlockMap[currentKey].FileEndpoint, strconv.Itoa(chain.BlockMap[currentKey].ByteOffset), strconv.FormatUint(uint64(chain.BlockMap[currentKey].ParsedBlockLength), 32), strconv.Itoa(chain.BlockMap[currentKey].RawBlockNumber)})
+    err = writer.Write([]string{thisHash, chain.BlockMap[currentKey].FileEndpoint, strconv.Itoa(chain.BlockMap[currentKey].ByteOffset), strconv.Itoa(int(chain.BlockMap[currentKey].ParsedBlockLength)), strconv.Itoa(chain.BlockMap[currentKey].RawBlockNumber)})
     if err != nil {
       fmt.Println("Error writing file", err)
       return err
@@ -918,10 +917,12 @@ func (Blockchain) ParseIndividualBlockSuppressOutput(Block *block.Block, file *o
     //fmt.Println("Transaction Hash: ", blockvalidation.ReverseEndian(Block.Transactions[transactionIndex].TransactionHash))
   }
 
-  _, err = filefunctions.ResetBlockHeadPointer(Block.BlockLength, file)
+  /*skipped, err := filefunctions.ResetBlockHeadPointer(Block.BlockLength, file)
   if err != nil {
     fmt.Println("Error in resetting block head pointer", err)
   }
+  fmt.Println(Block.BlockLength)
+  fmt.Println(skipped)*/
   return nil
 
 }

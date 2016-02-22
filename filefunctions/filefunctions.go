@@ -81,7 +81,7 @@ func LookForMagic(file *os.File) (uint32, error) {
       log.Fatal("Read binary in LookForMagic failed: ", err)
     }
   }
-  ByteCount += 4
+  SetByteCount(4)
   fmt.Println(iter)
   return iter, nil
 }

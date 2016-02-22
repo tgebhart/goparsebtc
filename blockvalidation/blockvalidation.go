@@ -536,6 +536,7 @@ func BlockChainInfoValidation(Block *block.Block) (error) {
 
 //GetReplacementKey returns blockchain.info's reported previous block hash given the parameter block hash
 func GetReplacementKey(hash string) (string, string, error) {
+  narcolepsy()
   blockHash := hash
   fmt.Println("Looking for previous block hash ...")
   resp, err := http.Get(BLOCKCHAININFOENDPOINT + blockHash)
@@ -547,7 +548,7 @@ func GetReplacementKey(hash string) (string, string, error) {
   if err != nil {
     panic(err.Error())
   }
-  tx, err := getTxs([]byte(body))
+  tx, err := getTxs(body)
   fmt.Println("prevblock" , tx.Prevblock)
   if tx.Prevblock != "" {
     return tx.Prevblock, tx.Hash, nil
@@ -560,7 +561,7 @@ func getTxs(body []byte) (*ResponseBlock, error) {
   var r = new(ResponseBlock)
   err := json.Unmarshal(body, &r)
   if err != nil {
-    fmt.Println("couldn't unmarshal", err)
+    fmt.Println("couldn't unmarshal", body, err)
   }
   return r, nil
 }
