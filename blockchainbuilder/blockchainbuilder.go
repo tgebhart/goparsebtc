@@ -221,7 +221,6 @@ func readTransactionHash(file *os.File) (string, []byte, error) {
     return "", nil, err
   }
   filefunctions.ReadUInt8ByteArrayLength32(b, &transactionHash)
-
   return transactionHash, b, nil
 }
 
@@ -238,11 +237,14 @@ func readTransactionIndex(file *os.File) (uint32, []byte, error) {
   if blockvalidation.ValidateTransactionIndex(transactionIndex) {
     return transactionIndex, b, nil
   }
+  fmt.Println("===================== ", b, "=========================")
   b, err = filefunctions.RewindAndRead32(b, file, &transactionIndex)
   if err != nil {
-    fmt.Println("rewind read failed: ", err)
+    fmt.Println("rewind read failed:  ", err)
   }
+  fmt.Println(b)
   return transactionIndex, b, nil
+
 }
 
 func readInputScriptLength(file *os.File) (uint64, []byte, error) {
@@ -442,6 +444,9 @@ func (Blockchain) ParseIndividualBlock(Block *block.Block, file *os.File) (error
     return err
   }
   fmt.Println("Time Stamp: ", blockvalidation.ConvertUnixEpochToDate(Block.Header.TimeStamp))
+
+  //Update TimeStamp of hashblock
+  Block.HashBlock.TimeStamp = Block.Header.TimeStamp
 
   Block.Header.TargetValue, Block.Header.ByteTargetValue, err = readTargetValue(file)
   if err != nil {
@@ -657,7 +662,7 @@ func WriteMainChainToFile(chain *Blockchain, currentKey string, filename string)
       nextHash = chain.BlockMap[currentKey].PreviousBlockHash
       currentKey = nextKey
     }
-    err = writer.Write([]string{thisHash, chain.BlockMap[currentKey].FileEndpoint, strconv.Itoa(chain.BlockMap[currentKey].ByteOffset), strconv.Itoa(int(chain.BlockMap[currentKey].ParsedBlockLength)), strconv.Itoa(chain.BlockMap[currentKey].RawBlockNumber)})
+    err = writer.Write([]string{thisHash, chain.BlockMap[currentKey].FileEndpoint, strconv.Itoa(chain.BlockMap[currentKey].ByteOffset), strconv.Itoa(int(chain.BlockMap[currentKey].ParsedBlockLength)), strconv.Itoa(chain.BlockMap[currentKey].RawBlockNumber), fmt.Sprint(chain.BlockMap[currentKey].TimeStamp)})
     if err != nil {
       fmt.Println("Error writing file", err)
       return err
@@ -755,6 +760,7 @@ func (Blockchain) ParseIndividualBlockSuppressOutput(Block *block.Block, file *o
     return err
   }
   //fmt.Println("Time Stamp: ", blockvalidation.ConvertUnixEpochToDate(Block.Header.TimeStamp))
+  Block.HashBlock.TimeStamp = Block.Header.TimeStamp
 
   Block.Header.TargetValue, Block.Header.ByteTargetValue, err = readTargetValue(file)
   if err != nil {
@@ -938,4 +944,203 @@ func (Blockchain) PrepareSkipBlock(Block *block.Block, fe string, rbn int, byteC
     return err
   }
   return nil
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/***************************OUTER LOOPS****************************************/
+
+
+//ParseBlockOnly parses a single block from a given file location and does not include the hash block
+func ParseBlockOnly(Block *block.Block, file *os.File) (error) {
+
+  filefunctions.SetByteCount(0)
+
+  bmagicNumber, err := readMagicNumber(file)
+  if err != nil {
+    fmt.Println("No magic number recovered", err)
+    return err
+  }
+  Block.MagicNumber = bmagicNumber
+
+  Block.BlockLength, err = readBlockLength(file)
+  if err != nil {
+    fmt.Println("No blocklength recovered", err)
+    return err
+  }
+
+  filefunctions.SetByteCount(0)
+
+  Block.Header.FormatVersion, Block.Header.ByteFormatVersion, err = readFormatVersion(file)
+  if err != nil {
+    fmt.Println("Error reading format version", Block.Header.FormatVersion, err)
+    return err
+  }
+
+  Block.Header.PreviousBlockHash, Block.Header.BytePreviousBlockHash, err = readPreviousBlockHash(file)
+  if err != nil {
+    fmt.Println("Error reading previous block hash", err)
+    return err
+  }
+  Block.Header.PreviousBlockHash = blockvalidation.ReverseEndian(Block.Header.PreviousBlockHash)
+
+  Block.Header.MerkleRoot, Block.Header.ByteMerkleRoot, err = readMerkleRoot(file)
+  if err != nil {
+    fmt.Println("Error reading merkle root", err)
+    return err
+  }
+
+  Block.Header.TimeStamp, Block.Header.ByteTimeStamp, err = readTimeStamp(file)
+  if err != nil {
+    fmt.Println("Error reading timestamp", err)
+    return err
+  }
+
+  Block.Header.TargetValue, Block.Header.ByteTargetValue, err = readTargetValue(file)
+  if err != nil {
+    fmt.Println("Error reading target value", err)
+    return err
+  }
+
+  Block.Header.Nonce, Block.Header.ByteNonce, err = readNonce(file)
+  if err != nil {
+    fmt.Println("Error reading nonce", err)
+    return err
+  }
+
+  Block.BlockHash, err = btchashing.ComputeBlockHash(Block)
+  if err != nil {
+    fmt.Println("Error computing block hash", err)
+    return err
+  }
+  Block.BlockHash = blockvalidation.ReverseEndian(Block.BlockHash)
+
+  Block.TransactionCount, err = readTransactionCount(file)
+  if err != nil {
+    fmt.Println("Error reading transaction length", err)
+    return err
+  }
+
+/*===============================Transactions=================================
+ ============================================================================*/
+
+  for transactionIndex := 0; transactionIndex < int(Block.TransactionCount); transactionIndex++ {
+
+    Block.Transactions = append(Block.Transactions, block.Transaction{})
+
+    Block.Transactions[transactionIndex].TransactionVersionNumber, Block.Transactions[transactionIndex].ByteTransactionVersionNumber, err = readTransactionVersion(file)
+    if err != nil {
+      fmt.Println("Error reading transaction version number", Block.Transactions[transactionIndex].TransactionVersionNumber, err)
+      return err
+    }
+
+    Block.Transactions[transactionIndex].InputCount, Block.Transactions[transactionIndex].ByteInputCount, err = readInputCount(file)
+    if err != nil {
+      fmt.Println("Error reading input count", err)
+      return err
+    }
+
+/**********************************Inputs**************************************
+ ******************************************************************************/
+
+    for inputIndex := 0; inputIndex < int(Block.Transactions[transactionIndex].InputCount); inputIndex++ {
+
+      Block.Transactions[transactionIndex].Inputs = append(Block.Transactions[transactionIndex].Inputs, block.Input{})
+
+      Block.Transactions[transactionIndex].Inputs[inputIndex].TransactionHash, Block.Transactions[transactionIndex].Inputs[inputIndex].ByteTransactionHash, err = readTransactionHash(file)
+      if err != nil {
+        fmt.Println("Error reading transaction hash", err)
+        return err
+      }
+      Block.Transactions[transactionIndex].Inputs[inputIndex].TransactionHash = blockvalidation.ReverseEndian(Block.Transactions[transactionIndex].Inputs[inputIndex].TransactionHash)
+
+
+      Block.Transactions[transactionIndex].Inputs[inputIndex].TransactionIndex, Block.Transactions[transactionIndex].Inputs[inputIndex].ByteTransactionIndex, err = readTransactionIndex(file)
+      if err != nil {
+        fmt.Println("Error reading transaction index", err)
+        return err
+      }
+
+      Block.Transactions[transactionIndex].Inputs[inputIndex].InputScriptLength, Block.Transactions[transactionIndex].Inputs[inputIndex].ByteInputScriptLength, err = readInputScriptLength(file)
+      if err != nil {
+        fmt.Println("Error reading script length", err)
+        return err
+      }
+
+      Block.Transactions[transactionIndex].Inputs[inputIndex].InputScript, Block.Transactions[transactionIndex].Inputs[inputIndex].ByteInputScript, err = readInputScriptBytes(int(Block.Transactions[transactionIndex].Inputs[inputIndex].InputScriptLength), file)
+      if err != nil {
+        fmt.Println("Error reading script bytes", err)
+        return err
+      }
+
+      Block.Transactions[transactionIndex].Inputs[inputIndex].SequenceNumber, Block.Transactions[transactionIndex].Inputs[inputIndex].ByteSequenceNumber, err = readSequenceNumber(file)
+      if err != nil {
+        fmt.Println("Error reading sequence number", err)
+        return err
+      }
+
+    }
+
+    Block.Transactions[transactionIndex].OutputCount, Block.Transactions[transactionIndex].ByteOutputCount, err = readOutputCount(file)
+    if err != nil {
+      fmt.Println("Error reading output count", err)
+      return err
+    }
+
+/**********************************Outputs*************************************
+ ******************************************************************************/
+
+    for outputIndex := 0; outputIndex < int(Block.Transactions[transactionIndex].OutputCount); outputIndex++ {
+
+      Block.Transactions[transactionIndex].Outputs = append(Block.Transactions[transactionIndex].Outputs, block.Output{})
+
+      Block.Transactions[transactionIndex].Outputs[outputIndex].OutputValue, Block.Transactions[transactionIndex].Outputs[outputIndex].ByteOutputValue, err = readOutputValue(file)
+      if err != nil {
+        fmt.Println("Error reading output value", err)
+        return err
+      }
+
+      Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptLength, Block.Transactions[transactionIndex].Outputs[outputIndex].ByteChallengeScriptLength, err = readChallengeScriptLength(file)
+      if err != nil {
+        fmt.Println("Error reading challenge script length", err)
+        return err
+      }
+
+      Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScript, Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptBytes, err = readChallengeScriptBytes(int(Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScriptLength), file)
+      if err != nil {
+        fmt.Println("Error reading challenge script bytes", err)
+        return err
+      }
+
+      _, err = blockvalidation.ParseOutputScript(&Block.Transactions[transactionIndex].Outputs[outputIndex])
+
+    }
+
+    Block.Transactions[transactionIndex].TransactionLockTime, Block.Transactions[transactionIndex].ByteTransactionLockTime, err = readTransactionLockTime(file)
+    if err != nil {
+      fmt.Println("Error reading transaction lock time", err)
+      return err
+    }
+
+    Block.Transactions[transactionIndex].TransactionHash, err = btchashing.ComputeTransactionHash(&Block.Transactions[transactionIndex], Block.Transactions[transactionIndex].InputCount, Block.Transactions[transactionIndex].OutputCount)
+    if err != nil {
+      fmt.Println("Error in computing transaction hash", err)
+      return err
+    }
+    Block.Transactions[transactionIndex].TransactionHash = blockvalidation.ReverseEndian(Block.Transactions[transactionIndex].TransactionHash)
+  }
+
+  return nil
+
 }

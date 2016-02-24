@@ -16,14 +16,14 @@ var ByteCount int
 //Possible64ByteErrorFlag tracks whether we've hit a missed byte in parsing in the main method output count
 //var Possible64ByteErrorFlag bool
 
-//ReadNextBytes reads number of bytes from binary file
+//ReadNextBytes reads number of bytes from file
 func ReadNextBytes(file *os.File, number int) ([]byte, error) {
   bytes := make([]byte, number)
   ByteCount = ByteCount + number
 
   _, err := file.Read(bytes)
   if err != nil {
-      return nil, err
+    return nil, err
   }
   return bytes, nil
 }
@@ -33,7 +33,7 @@ func RewindAndRead64(b []byte, file *os.File, outputValue *uint64) ([]byte, erro
   var secondTryLen int64 = 7
     bytesTwo := make([]byte, secondTryLen)
     ByteCount = ByteCount - int(secondTryLen) - 1
-
+    log.Println("seeking 64...")
     _, _ = file.Seek(-(secondTryLen + 1), 1)
     _, err := file.Read(bytesTwo)
     if err != nil {
@@ -47,12 +47,12 @@ func RewindAndRead64(b []byte, file *os.File, outputValue *uint64) ([]byte, erro
 
 //RewindAndRead32 is called when we fail validation of unsigned 32 bit integer and want to skip back a bit and restart parsing
 func RewindAndRead32(b []byte, file *os.File, transactionIndex *uint32) ([]byte, error) {
-  var secondTryLen int64 = 3
+  var secondTryLen int64 = 4
     bytesTwo := make([]byte, secondTryLen)
-    ByteCount = ByteCount - (int(secondTryLen) + 1)
+    ByteCount = ByteCount - int(secondTryLen) - 1
 
-    a, c := file.Seek(-(secondTryLen + 1), 1)
-    log.Println("seeking...", a, c)
+    _, _ = file.Seek(-(secondTryLen + 1), 1)
+    log.Println("seeking 32...")
     _, err := file.Read(bytesTwo)
     if err != nil {
       return nil, err
@@ -64,6 +64,7 @@ func RewindAndRead32(b []byte, file *os.File, transactionIndex *uint32) ([]byte,
 
 //StepBack sets the file pointer back length and updates the ByteCount field
 func StepBack(length int, file *os.File) {
+  log.Println("step back...")
   _,_ = file.Seek(-int64(length), 1)
   ByteCount = ByteCount - length
 }

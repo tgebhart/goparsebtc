@@ -25,6 +25,7 @@ type HashBlock struct {
   BlockHash string
   PreviousCompressedBlockHash string
   PreviousBlockHash string
+  TimeStamp uint32
   ByteOffset int
   ParsedBlockLength uint32
   RawBlockNumber int
@@ -94,4 +95,56 @@ type Address struct {
   PublicKeyBytes []byte
   RipeMD160 string
   Transactions []Transaction
+}
+
+
+//DBlock holds database structure for block
+type DBlock struct {
+  MagicNumber int
+  BlockLength int
+  BlockHash string
+  FormatVersion int
+  PreviousBlockHash string
+  MerkleRoot string
+  TimeStamp int
+  TargetValue int
+  Nonce int
+  TransactionCount int
+  Transactions []DTransaction
+}
+
+//DTransaction holds structure for input object in database
+type DTransaction struct {
+  TransactionHash string
+  TransactionVersionNumber int
+  InputCount int
+  Inputs []DInput
+  OutputCount int
+  Outputs []DOutput
+  TransactionLockTime int
+}
+
+//DInput holds structure for input object in database
+type DInput struct {
+  TransactionHash string
+  TransactionIndex int
+  InputScriptLength int
+  InputScript string
+  SequenceNumber int
+}
+
+//DOutput holds structure for output object in database
+type DOutput struct {
+  OutputValue int
+  ChallengeScriptLength int
+  ChallengeScript string
+  KeyType string
+  NumAddresses int
+  Addresses []DAddress
+}
+
+//DAddress holds structure for address object in database
+type DAddress struct {
+  Address string
+  Transactions []DTransaction
 }

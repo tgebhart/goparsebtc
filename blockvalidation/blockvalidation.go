@@ -565,3 +565,40 @@ func getTxs(body []byte) (*ResponseBlock, error) {
   }
   return r, nil
 }
+
+
+
+//BridgeWithBlockchainInfo bridges data that could not be parsed with block from blockchain.info
+func BridgeWithBlockchainInfo(dBlock *block.DBlock, hash string) (error) {
+  var r = new(ResponseBlock)
+  resp, err := http.Get(BLOCKCHAININFOENDPOINT + hash)
+  if err != nil {
+    return err
+  }
+  defer resp.Body.Close()
+  body, _ := ioutil.ReadAll(resp.Body)
+  json.Unmarshal(body, &r)
+
+  if hash == r.Hash {
+    mapResponseToBlock(r, dBlock)
+  }
+  return errors.New("Hashes do not match")
+}
+
+
+func mapResponseToBlock(r *ResponseBlock, d *block.DBlock) {
+
+  fmt.Println(r)
+  d.BlockLength = r.Size
+  d.BlockHash = r.Hash
+  d.TransactionCount = r.Ntx
+
+  d.FormatVersion = r.Ver
+  d.PreviousBlockHash = r.Prevblock
+  d.MerkleRoot = r.Mrklroot
+  d.TimeStamp = r.Time
+  d.TargetValue = 0
+  d.Nonce = r.Nonce
+
+
+}
