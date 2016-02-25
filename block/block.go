@@ -27,6 +27,7 @@ type HashBlock struct {
   PreviousBlockHash string
   TimeStamp uint32
   ByteOffset int
+  LengthRead int
   ParsedBlockLength uint32
   RawBlockNumber int
 }
@@ -97,6 +98,61 @@ type Address struct {
   Transactions []Transaction
 }
 
+//ResponseBlock holds the blockchain.info response json when querying a block through
+//blockchain.info API. It should be noted that compound names like Prevblock are
+//represented as prev_block with underscores. However, underscores are to be avoided
+//in Go.
+type ResponseBlock struct {
+  Hash string `json:"hash"`
+  Ver int `json:"ver"`
+  Prevblock string `json:"prev_block"`
+  Mrklroot string `json:"mrkl_root"`
+  Time int `json:"time"`
+  Bits int `json:"bits"`
+  Fee int `json:"fee"`
+  Nonce int `json:"nonce"`
+  Ntx int `json:"n_tx"`
+  Size int `json:"size"`
+  Blockindex int `json:"block_index"`
+  Mainchain bool `json:"main_chain"`
+  Height int `json:"height"`
+  Tx []ResponseTransaction `json:"tx"`
+}
+
+//ResponseTransaction holds the blockchain.info response json for a given transaction in a block
+type ResponseTransaction struct {
+  Locktime int `json:"lock_time"`
+  Ver int `json:"ver"`
+  Size int `json:"size"`
+  Inputs []ResponseInput `json:"inputs"`
+  Time int `json:"time"`
+  Txindex int `json:"tx_index"`
+  Vinsz int `json:"vin_sz"`
+  Hash string `json:"hash"`
+  Voutsz int `json:"vout_sz"`
+  Relayedby string `json:"relayed_by"`
+  Out []ResponseOutput `json:"out"`
+}
+
+//ResponseInput holds the blockchain.info response json for a block's input.
+type ResponseInput struct {
+  Sequence int `json:"sequence"`
+  Script string `json:"script"`
+}
+
+//ResponseOutput holds the blockchain.info response json for a block's output.
+//Note that responsetype is returned with key "type" by blockchain.info, but this
+//is a Go reserved word
+type ResponseOutput struct {
+  Spent bool `json:"spent"`
+  Txindex int `json:"tx_index"`
+  Responsetype int `json:"type"`
+  Addr string `json:"addr"`
+  Value int `json:"value"`
+  N int `json:"n"`
+  Script string `json:"script"`
+}
+
 
 //DBlock holds database structure for block
 type DBlock struct {
@@ -118,10 +174,12 @@ type DTransaction struct {
   TransactionHash string
   TransactionVersionNumber int
   InputCount int
+  TransactionIndex int
   Inputs []DInput
   OutputCount int
   Outputs []DOutput
   TransactionLockTime int
+  Time int
 }
 
 //DInput holds structure for input object in database
@@ -139,6 +197,7 @@ type DOutput struct {
   ChallengeScriptLength int
   ChallengeScript string
   KeyType string
+  TransactionIndex int
   NumAddresses int
   Addresses []DAddress
 }

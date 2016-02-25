@@ -10,6 +10,9 @@ import (
     "github.com/tgebhart/goparsebtc/blockvalidation"
     "encoding/csv"
     "strconv"
+    //"github.com/aws/aws-sdk-go/aws"
+    //"github.com/aws/aws-sdk-go/aws/session"
+    //"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 //Blockchain holds the BlockMap object
@@ -72,7 +75,7 @@ func ReadReferenceFile(r *ReadChain, location string) (error) {
     tempBlock.ByteOffset, _ = strconv.Atoi(each[2])
     tempBlock.BlockLength, _ = strconv.Atoi(each[3])
     tempBlock.RawBlockNumber, _ = strconv.Atoi(each[4])
-    tempBlock.TimeStamp, _ = strconv.Atoi(each[5])
+    //tempBlock.TimeStamp, _ = strconv.Atoi(each[5])
     tempChain = append(tempChain, tempBlock)
   }
 
@@ -96,11 +99,14 @@ func LoadChain(chain *Blockchain, readchain *ReadChain, datLocation string) (err
 
     nextEndpoint := b.FileEndpoint
 
+    fmt.Println("Read b: ", b.BlockHash)
+
     if nextEndpoint == "" {
       err := blockvalidation.BridgeWithBlockchainInfo(&dBlock, b.BlockHash)
       if err != nil {
         return err
       }
+      fmt.Println("dBlock: ", dBlock)
     } else {
       fmt.Println("compare", nextEndpoint, datEndpoint)
       if nextEndpoint != datEndpoint {
@@ -136,6 +142,15 @@ func LoadChain(chain *Blockchain, readchain *ReadChain, datLocation string) (err
 
   return nil
 }
+/*
+//UploadChain uploads the full chain to AWS DynamoDB
+func UploadFullChain(chain *block.Blockchain) (error) {
+
+  for hashkey, dblock := range chain.BlockMap {
+
+  }
+}
+*/
 
 
 func readBlock(b *block.Block, startByte int, length int, file *os.File) (error) {
@@ -176,11 +191,13 @@ func MapBlockToDBlock(b *block.Block, d *block.DBlock) (error) {
   d.Nonce = int(b.Header.Nonce)
   d.TransactionCount = int(b.TransactionCount)
 
-  for t := 0; t < d.TransactionCount; t++ {
+  for t := 0; t < d.TransactionCount - 1; t++ {
+    d.Transactions[t].TransactionIndex = 0
+    d.Transactions[t].Time = d.TimeStamp
     d.Transactions[t].TransactionHash = b.Transactions[t].TransactionHash
     d.Transactions[t].TransactionVersionNumber = int(b.Transactions[t].TransactionVersionNumber)
     d.Transactions[t].InputCount = int(b.Transactions[t].InputCount)
-    for i := 0; i < d.Transactions[t].InputCount; i++ {
+    for i := 0; i < d.Transactions[t].InputCount - 1; i++ {
       d.Transactions[t].Inputs[i].TransactionHash = b.Transactions[t].Inputs[i].TransactionHash
       d.Transactions[t].Inputs[i].TransactionIndex = int(b.Transactions[t].Inputs[i].TransactionIndex)
       d.Transactions[t].Inputs[i].InputScriptLength = int(b.Transactions[t].Inputs[i].InputScriptLength)
@@ -188,7 +205,7 @@ func MapBlockToDBlock(b *block.Block, d *block.DBlock) (error) {
       d.Transactions[t].Inputs[i].SequenceNumber = int(b.Transactions[t].Inputs[i].SequenceNumber)
     }
     d.Transactions[t].OutputCount = int(b.Transactions[t].OutputCount)
-    for o := 0; o < d.Transactions[t].OutputCount; o++ {
+    for o := 0; o < d.Transactions[t].OutputCount - 1; o++ {
       d.Transactions[t].Outputs[o].OutputValue = int(b.Transactions[t].Outputs[o].OutputValue)
       d.Transactions[t].Outputs[o].ChallengeScriptLength = int(b.Transactions[t].Outputs[o].ChallengeScriptLength)
       d.Transactions[t].Outputs[o].ChallengeScript = b.Transactions[t].Outputs[o].ChallengeScript

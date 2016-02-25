@@ -55,7 +55,7 @@ func RewindAndRead32(b []byte, file *os.File, transactionIndex *uint32) ([]byte,
     if err != nil {
       return nil, err
     }
-    ByteCount = ByteCount + len(bytesTwo)
+    ByteCount = ByteCount + int(secondTryLen) + 1
     ReadBinaryToUInt32(bytesTwo, transactionIndex)
     return bytesTwo, nil
   }
@@ -79,7 +79,6 @@ func LookForMagic(file *os.File) (uint32, error) {
       log.Fatal("Read binary in LookForMagic failed: ", err)
     }
   }
-  SetByteCount(4)
   fmt.Println(iter)
   return iter, nil
 }
@@ -97,7 +96,7 @@ func DetailedLookForMagic(file *os.File) (uint32, error) {
       log.Fatal("Read binary in DetailedLookForMagic failed: ", err)
     }
     if iter != 0xD9B4BEF9 {
-      _,_ = file.Seek(-int64(3), 1)
+      StepBack(3, file)
     }
   }
   return iter, nil

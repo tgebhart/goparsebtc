@@ -23,61 +23,8 @@ const SatoshiConst uint32 = 4294967295
 var ErrMultiSig = errors.New("unable to parse multisig")
 //ErrReplacementKey is thrown when blockchain.info validation cannot find previous block key
 var ErrReplacementKey = errors.New("could not find replacement key")
-
-//ResponseBlock holds the blockchain.info response json when querying a block through
-//blockchain.info API. It should be noted that compound names like Prevblock are
-//represented as prev_block with underscores. However, underscores are to be avoided
-//in Go.
-type ResponseBlock struct {
-  Hash string `json:"hash"`
-  Ver int `json:"ver"`
-  Prevblock string `json:"prev_block"`
-  Mrklroot string `json:"mrkl_root"`
-  Time int `json:"time"`
-  Bits int `json:"bits"`
-  Fee int `json:"fee"`
-  Nonce int `json:"nonce"`
-  Ntx int `json:"n_tx"`
-  Size int `json:"size"`
-  Blockindex int `json:"block_index"`
-  Mainchain bool `json:"main_chain"`
-  Height int `json:"height"`
-  Tx []ResponseTransaction `json:"tx"`
-}
-
-//ResponseTransaction holds the blockchain.info response json for a given transaction in a block
-type ResponseTransaction struct {
-  Locktime int `json:"lock_time"`
-  Ver int `json:"ver"`
-  Size int `json:"size"`
-  Inputs []ResponseInput `json:"inputs"`
-  Time int `json:"time"`
-  Txindex int `json:"tx_index"`
-  Vinsz int `json:"vin_sz"`
-  Hash string `json:"hash"`
-  Voutsz int `json:"vout_sz"`
-  Relayedby string `json:"relayed_by"`
-  Out []ResponseOutput `json:"out"`
-}
-
-//ResponseInput holds the blockchain.info response json for a block's input.
-type ResponseInput struct {
-  Sequence int `json:"sequence"`
-  Script string `json:"script"`
-}
-
-//ResponseOutput holds the blockchain.info response json for a block's output.
-//Note that responsetype is returned with key "type" by blockchain.info, but this
-//is a Go reserved word
-type ResponseOutput struct {
-  Spent bool `json:"spent"`
-  Txindex int `json:"tx_index"`
-  Responsetype int `json:"type"`
-  Addr string `json:"addr"`
-  Value int `json:"value"`
-  N int `json:"n"`
-  Script string `json:"script"`
-}
+//ErrZeroOutputScript is thrown when zero length output script is present
+var ErrZeroOutputScript = errors.New("block may have zero length outputs script")
 
 //public key types
 const (
@@ -386,7 +333,6 @@ func ParseOutputScript(output *block.Output) (string, error) {
         scanbegin = output.ChallengeScriptBytes[scanIndex]
         var keyIndex uint8
         for keyIndex < 5 && scanbegin < scanend {
-          fmt.Println("into for loop", scanbegin, scanend)
           if scanbegin == 0x21 {
             output.KeyType = MultiSigKey
             scanIndex++
@@ -430,7 +376,8 @@ func ParseOutputScript(output *block.Output) (string, error) {
     //  fmt.Println("FAILED TO LOCATE PUBLIC KEY")
     //}
   } else {
-    fmt.Println("Block may have zero byte length output script")
+    output.KeyType = NullKey
+    return output.KeyType ,ErrZeroOutputScript
   }
 
   if output.Addresses[0].PublicKey == "" {
@@ -516,7 +463,7 @@ func narcolepsy() {
 
 //BlockChainInfoValidation calls blockchain.info and checks the block for near-real-time error-checking
 func BlockChainInfoValidation(Block *block.Block) (error) {
-  ResponseBlock := ResponseBlock{}
+  ResponseBlock := block.ResponseBlock{}
   blockHash := ReverseEndian(Block.BlockHash)
   fmt.Println("block hash", blockHash)
   resp, err := http.Get(BLOCKCHAININFOENDPOINT + blockHash)
@@ -557,8 +504,8 @@ func GetReplacementKey(hash string) (string, string, error) {
   return "", "", ErrReplacementKey
 }
 
-func getTxs(body []byte) (*ResponseBlock, error) {
-  var r = new(ResponseBlock)
+func getTxs(body []byte) (*block.ResponseBlock, error) {
+  var r = new(block.ResponseBlock)
   err := json.Unmarshal(body, &r)
   if err != nil {
     fmt.Println("couldn't unmarshal", body, err)
@@ -570,7 +517,7 @@ func getTxs(body []byte) (*ResponseBlock, error) {
 
 //BridgeWithBlockchainInfo bridges data that could not be parsed with block from blockchain.info
 func BridgeWithBlockchainInfo(dBlock *block.DBlock, hash string) (error) {
-  var r = new(ResponseBlock)
+  var r = new(block.ResponseBlock)
   resp, err := http.Get(BLOCKCHAININFOENDPOINT + hash)
   if err != nil {
     return err
@@ -579,20 +526,21 @@ func BridgeWithBlockchainInfo(dBlock *block.DBlock, hash string) (error) {
   body, _ := ioutil.ReadAll(resp.Body)
   json.Unmarshal(body, &r)
 
+  fmt.Println("Hashes: ", r.Hash , hash)
+
   if hash == r.Hash {
     mapResponseToBlock(r, dBlock)
+    return nil
   }
   return errors.New("Hashes do not match")
 }
 
 
-func mapResponseToBlock(r *ResponseBlock, d *block.DBlock) {
+func mapResponseToBlock(r *block.ResponseBlock, d *block.DBlock) {
 
-  fmt.Println(r)
   d.BlockLength = r.Size
   d.BlockHash = r.Hash
   d.TransactionCount = r.Ntx
-
   d.FormatVersion = r.Ver
   d.PreviousBlockHash = r.Prevblock
   d.MerkleRoot = r.Mrklroot
@@ -600,5 +548,42 @@ func mapResponseToBlock(r *ResponseBlock, d *block.DBlock) {
   d.TargetValue = 0
   d.Nonce = r.Nonce
 
+  d.Transactions = make([]block.DTransaction , d.TransactionCount)
+
+  for t := 0; t < d.TransactionCount - 1; t++ {
+    d.Transactions[t].TransactionHash = r.Tx[t].Hash
+    d.Transactions[t].TransactionVersionNumber = r.Tx[t].Ver
+    d.Transactions[t].InputCount = r.Tx[t].Vinsz
+    d.Transactions[t].TransactionIndex = r.Tx[t].Txindex
+    d.Transactions[t].Time = r.Tx[t].Time
+
+    d.Transactions[t].Inputs = make([]block.DInput , d.Transactions[t].InputCount)
+
+    for i := 0; i < d.Transactions[t].InputCount - 1; i++ {
+      d.Transactions[t].Inputs[i].InputScript = r.Tx[t].Inputs[i].Script
+      d.Transactions[t].Inputs[i].TransactionIndex = d.Transactions[t].TransactionIndex
+      d.Transactions[t].Inputs[i].TransactionHash = ""
+      d.Transactions[t].Inputs[i].InputScriptLength = len(d.Transactions[t].Inputs[i].InputScript)
+      d.Transactions[t].Inputs[i].SequenceNumber = r.Tx[t].Inputs[i].Sequence
+    }
+
+    d.Transactions[t].OutputCount = r.Tx[t].Voutsz
+    d.Transactions[t].Outputs = make([]block.DOutput , d.Transactions[t].OutputCount)
+
+    for o := 0; o < d.Transactions[t].OutputCount - 1; o++ {
+      d.Transactions[t].Outputs[o].OutputValue = r.Tx[t].Out[o].Value
+      d.Transactions[t].Outputs[o].TransactionIndex = r.Tx[t].Out[o].Txindex
+      d.Transactions[t].Outputs[o].ChallengeScript = r.Tx[t].Out[o].Script
+      d.Transactions[t].Outputs[o].ChallengeScriptLength = len(d.Transactions[t].Outputs[o].ChallengeScript)
+      d.Transactions[t].Outputs[o].KeyType = ""
+      d.Transactions[t].Outputs[o].NumAddresses = 1
+
+      d.Transactions[t].Outputs[o].Addresses = make([]block.DAddress , 1)
+      d.Transactions[t].Outputs[o].Addresses[0].Address = r.Tx[t].Out[o].Addr
+    }
+
+    d.Transactions[t].TransactionLockTime = r.Tx[t].Locktime
+
+  }
 
 }

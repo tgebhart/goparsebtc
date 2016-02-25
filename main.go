@@ -48,7 +48,7 @@ func main() {
       }
     }
 
-  if start != 0 && finish != 0 {
+  if finish != 0 {
 
     var blockCounter = 0
 
@@ -72,6 +72,7 @@ func main() {
       }
       fmt.Printf("%s opened\n", path)
       var bytesRead = 0
+      var lengthRead = 0
       defer file.Close()
       err = nil
       for err == nil {
@@ -109,6 +110,11 @@ func main() {
             err = nil
             chain.PrepareSkipBlock(&Block, pathEndpoint, blockCounter, bytesRead, file)
           }
+          if err == blockvalidation.ErrZeroOutputScript {
+            fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n Zero Output Script \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+            err = nil
+            chain.PrepareSkipBlock(&Block, pathEndpoint, blockCounter, bytesRead, file)
+          }
           if err == blockchainbuilder.ErrBadMagic {
             log.Fatal(err)
           }
@@ -120,6 +126,7 @@ func main() {
         Block.HashBlock.FileEndpoint = pathEndpoint
         Block.HashBlock.RawBlockNumber = blockCounter
         Block.HashBlock.ByteOffset = bytesRead
+        Block.HashBlock.LengthRead = lengthRead
 
         //Add HashBlock to Blockchain hashmap
         if Block.HashBlock.CompressedBlockHash == "" {
@@ -135,6 +142,7 @@ func main() {
           //log.Fatal("error in blockchain.info validation")
         //}
         bytesRead += filefunctions.GetByteCount()
+        lengthRead += int(Block.BlockLength)
         blockCounter++
       }
       fmt.Println("Bytes read: ", bytesRead)
@@ -150,8 +158,10 @@ func main() {
   } else {
 
     if f == "map" && dumpLocation != "" {
-      readchain := new(blockchainreader.ReadChain)
-      mainchain := new(blockchainreader.Blockchain)
+
+      readchain := blockchainreader.NewReadChain()
+      mainchain := blockchainreader.NewBlockchain()
+
       err = blockchainreader.ReadReferenceFile(readchain, dumpLocation)
       if err != nil {
         log.Fatal(err)
@@ -165,9 +175,6 @@ func main() {
 
 
     }
-
-
-
-
   }
+
 }
