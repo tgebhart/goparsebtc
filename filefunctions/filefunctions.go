@@ -33,7 +33,6 @@ func RewindAndRead64(b []byte, file *os.File, outputValue *uint64) ([]byte, erro
   var secondTryLen int64 = 7
     bytesTwo := make([]byte, secondTryLen)
     ByteCount = ByteCount - int(secondTryLen) - 1
-    log.Println("seeking 64...")
     _, _ = file.Seek(-(secondTryLen + 1), 1)
     _, err := file.Read(bytesTwo)
     if err != nil {
@@ -52,7 +51,6 @@ func RewindAndRead32(b []byte, file *os.File, transactionIndex *uint32) ([]byte,
     ByteCount = ByteCount - int(secondTryLen) - 1
 
     _, _ = file.Seek(-(secondTryLen + 1), 1)
-    log.Println("seeking 32...")
     _, err := file.Read(bytesTwo)
     if err != nil {
       return nil, err
@@ -64,7 +62,6 @@ func RewindAndRead32(b []byte, file *os.File, transactionIndex *uint32) ([]byte,
 
 //StepBack sets the file pointer back length and updates the ByteCount field
 func StepBack(length int, file *os.File) {
-  log.Println("step back...")
   _,_ = file.Seek(-int64(length), 1)
   ByteCount = ByteCount - length
 }
@@ -84,6 +81,25 @@ func LookForMagic(file *os.File) (uint32, error) {
   }
   SetByteCount(4)
   fmt.Println(iter)
+  return iter, nil
+}
+
+//DetailedLookForMagic goes byte-by-byte to look for magic number
+func DetailedLookForMagic(file *os.File) (uint32, error) {
+  var iter uint32
+  for iter != 0xD9B4BEF9 {
+    b, err := ReadNextBytes(file, 4)
+    if err != nil {
+      return 0, err
+    }
+    err = ReadBinaryToUInt32(b, &iter)
+    if err != nil {
+      log.Fatal("Read binary in DetailedLookForMagic failed: ", err)
+    }
+    if iter != 0xD9B4BEF9 {
+      _,_ = file.Seek(-int64(3), 1)
+    }
+  }
   return iter, nil
 }
 

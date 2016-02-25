@@ -410,7 +410,7 @@ func ParseOutputScript(output *block.Output) (string, error) {
       }
       if output.Addresses[0].PublicKeyBytes == nil {
         fmt.Println("&&&&&&&&&&&&&&&&&&&&&&&&&&& error multisig &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
-        //return "", ErrMultiSig
+        return "", ErrMultiSig
       }
     } else { //scan for pattern OP_DUP, OP_HASH160, 0x14, 20 bytes, 0x88, 0xac
       if output.ChallengeScriptLength > 25 {

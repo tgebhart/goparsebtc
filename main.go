@@ -87,9 +87,25 @@ func main() {
             fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n MultiSigErr \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
             err = nil
             //log.Fatal(err)
+            chain.PrepareSkipBlock(&Block, pathEndpoint, blockCounter, bytesRead, file)
           }
           if err == blockchainbuilder.ErrBadFormatVersion {
             fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n Found bad format version \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+            err = nil
+            chain.PrepareSkipBlock(&Block, pathEndpoint, blockCounter, bytesRead, file)
+          }
+          if err == blockchainbuilder.ErrBadOutputValue {
+            fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n Found bad Output Value \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+            err = nil
+            chain.PrepareSkipBlock(&Block, pathEndpoint, blockCounter, bytesRead, file)
+          }
+          if err == blockchainbuilder.ErrBadSequenceNumber {
+            fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n Found bad Sequence Number \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+            err = nil
+            chain.PrepareSkipBlock(&Block, pathEndpoint, blockCounter, bytesRead, file)
+          }
+          if err == blockchainbuilder.ErrBadTransactionVersion{
+            fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n Found bad Transaction Version \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
             err = nil
             chain.PrepareSkipBlock(&Block, pathEndpoint, blockCounter, bytesRead, file)
           }
@@ -149,9 +165,6 @@ func main() {
 
 
     }
-
-
-
 
 
 

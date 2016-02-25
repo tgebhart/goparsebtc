@@ -33,6 +33,10 @@ var ErrBadOutputValue = errors.New("blockchainbuilder : unusual output value")
 var ErrBadFormatVersion = errors.New("Unusual format version")
 //ErrWriteToFile is thrown when an error occurs while writing main chain to file
 var ErrWriteToFile = errors.New("WriteToFile: Could not locate previous block hash")
+//ErrBadSequenceNumber is thrown when an errors occurs in reading sequence number
+var ErrBadSequenceNumber = errors.New("blockchainbuilder: unusual sequence number")
+//ErrBadTransactionVersion is thrown when an error occurs in reading transaction version
+var ErrBadTransactionVersion = errors.New("blockchainbuilder: unusual transaction version")
 
 
 
@@ -50,7 +54,7 @@ func readMagicNumber(file *os.File) (uint32, error) {
   if blockvalidation.ValidateMagicNumber(magicNumber) {
     return magicNumber, nil
   }
-  magicNumber, err = filefunctions.LookForMagic(file)
+  magicNumber, err = filefunctions.DetailedLookForMagic(file)
   if err != nil {
     return 0, err
   }
@@ -190,7 +194,7 @@ func readTransactionVersion(file *os.File) (uint32, []byte, error) {
       return transactionVersion, b, nil
     }
   }
-  return 0, nil, errors.New("Unexpected transaction version number")
+  return 0, nil, ErrBadTransactionVersion
 }
 
 func readInputCount(file *os.File) (uint64, []byte, error) {
@@ -237,12 +241,10 @@ func readTransactionIndex(file *os.File) (uint32, []byte, error) {
   if blockvalidation.ValidateTransactionIndex(transactionIndex) {
     return transactionIndex, b, nil
   }
-  fmt.Println("===================== ", b, "=========================")
   b, err = filefunctions.RewindAndRead32(b, file, &transactionIndex)
   if err != nil {
     fmt.Println("rewind read failed:  ", err)
   }
-  fmt.Println(b)
   return transactionIndex, b, nil
 
 }
@@ -300,7 +302,7 @@ func readSequenceNumber(file *os.File) (uint32, []byte, error) {
   if blockvalidation.ValidateSequenceNumber(b) {
     return sequenceNumber, b, nil
   }
-  return 0, nil, errors.New("Invalid sequence number")
+  return 0, nil, ErrBadSequenceNumber
 }
 
 func readOutputCount(file *os.File) (uint64, []byte, error) {
@@ -586,7 +588,7 @@ func (Blockchain) ParseIndividualBlock(Block *block.Block, file *os.File) (error
       }
       fmt.Println("Challenge Script: ", Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScript)
 
-      _, err = blockvalidation.ParseOutputScript(&Block.Transactions[transactionIndex].Outputs[outputIndex])
+      Block.Transactions[transactionIndex].Outputs[outputIndex].KeyType, err = blockvalidation.ParseOutputScript(&Block.Transactions[transactionIndex].Outputs[outputIndex])
       if err != nil {
         return err
       }
@@ -900,7 +902,10 @@ func (Blockchain) ParseIndividualBlockSuppressOutput(Block *block.Block, file *o
       }
       //fmt.Println("Challenge Script: ", Block.Transactions[transactionIndex].Outputs[outputIndex].ChallengeScript)
 
-      _, err = blockvalidation.ParseOutputScript(&Block.Transactions[transactionIndex].Outputs[outputIndex])
+      Block.Transactions[transactionIndex].Outputs[outputIndex].KeyType, err = blockvalidation.ParseOutputScript(&Block.Transactions[transactionIndex].Outputs[outputIndex])
+      if err != nil {
+        return err
+      }
 
       //fmt.Println("Hash160: ", Block.Transactions[transactionIndex].Outputs[outputIndex].Addresses[0].RipeMD160)
       //fmt.Println("Address: ", Block.Transactions[transactionIndex].Outputs[outputIndex].Addresses[0].Address)
@@ -1123,7 +1128,10 @@ func ParseBlockOnly(Block *block.Block, file *os.File) (error) {
         return err
       }
 
-      _, err = blockvalidation.ParseOutputScript(&Block.Transactions[transactionIndex].Outputs[outputIndex])
+      Block.Transactions[transactionIndex].Outputs[outputIndex].KeyType, err = blockvalidation.ParseOutputScript(&Block.Transactions[transactionIndex].Outputs[outputIndex])
+      if err != nil {
+        return err
+      }
 
     }
 
