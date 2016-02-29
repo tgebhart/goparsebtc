@@ -78,6 +78,7 @@ func main() {
       for err == nil {
         fmt.Println("++++++++++++++++++++++++++++++++++++ BLOCK ", blockCounter, " +++++++++++++++++++++++++++++++++++++++++++")
         Block := block.Block{}
+
         err = chain.ParseIndividualBlockSuppressOutput(&Block, file)
         if err != nil {
           if err == io.EOF { //reached end of file
@@ -125,7 +126,6 @@ func main() {
         }
         Block.HashBlock.FileEndpoint = pathEndpoint
         Block.HashBlock.RawBlockNumber = blockCounter
-        Block.HashBlock.ByteOffset = bytesRead
         Block.HashBlock.LengthRead = lengthRead
 
         //Add HashBlock to Blockchain hashmap

@@ -88,12 +88,12 @@ func ReadReferenceFile(r *ReadChain, location string) (error) {
 func LoadChain(chain *Blockchain, readchain *ReadChain, datLocation string) (error) {
 
   var dBlock block.DBlock
-  var fBlock block.Block
   var datEndpoint string
   var file *os.File
   var err error
 
-  for i := 0; i < len(readchain.ReadBlocks) - 2; i++ {
+  for i := 1; i < len(readchain.ReadBlocks) - 1; i++ {
+    var fBlock block.Block
     b := readchain.ReadBlocks[i]
     fmt.Println(b.FileEndpoint)
 
@@ -101,13 +101,14 @@ func LoadChain(chain *Blockchain, readchain *ReadChain, datLocation string) (err
 
     fmt.Println("Read b: ", b.BlockHash)
 
-    if nextEndpoint == "" {
+    if nextEndpoint == "" || readchain.ReadBlocks[i-1].ByteOffset == 0 {
       err := blockvalidation.BridgeWithBlockchainInfo(&dBlock, b.BlockHash)
       if err != nil {
         return err
       }
       fmt.Println("dBlock: ", dBlock)
     } else {
+
       fmt.Println("compare", nextEndpoint, datEndpoint)
       if nextEndpoint != datEndpoint {
         file, err = os.Open(datLocation + nextEndpoint)
@@ -118,20 +119,36 @@ func LoadChain(chain *Blockchain, readchain *ReadChain, datLocation string) (err
         datEndpoint = nextEndpoint
       }
 
-      err := readBlock(&fBlock, readchain.ReadBlocks[i+1].ByteOffset, readchain.ReadBlocks[i+1].BlockLength, file)
+      err := readBlock(&fBlock, readchain.ReadBlocks[i-1].ByteOffset, readchain.ReadBlocks[i-1].BlockLength, file)
       if err != nil {
-        fmt.Println("LoadChain: ")
-        return err
+        if err == blockchainbuilder.ErrBadMagic {
+          err = blockvalidation.BridgeWithBlockchainInfo(&dBlock, b.BlockHash)
+          if err != nil {
+            return err
+          }
+
+        } else {
+          fmt.Println("LoadChain: ")
+          return err
+        }
       }
 
-      fmt.Println(fBlock.Header, fBlock.BlockHash)
+      if fBlock.BlockHash != "" {
 
-      for fBlock.BlockHash != b.BlockHash {
-        return ErrCompareHashes
+        fmt.Println(fBlock.BlockHash, b.BlockHash)
+
+        if fBlock.BlockHash != b.BlockHash {
+          return ErrCompareHashes
+        }
+
+        err = MapBlockToDBlock(&fBlock, &dBlock)
+        if err != nil {
+          return err
+        }
+
       }
 
-      err = MapBlockToDBlock(&fBlock, &dBlock)
-    }
+    } //end else
 
     err := putBlock(chain, dBlock)
     if err != nil {
@@ -155,10 +172,20 @@ func UploadFullChain(chain *block.Blockchain) (error) {
 
 func readBlock(b *block.Block, startByte int, length int, file *os.File) (error) {
 
-  file.Seek(int64(startByte - length - 4), 0)
-  err := blockchainbuilder.ParseBlockOnly(b, file)
+  //bytes := make([]byte, length)
+
+  /*_ , err := file.ReadAt(bytes, int64(startByte))
   if err != nil {
-    fmt.Println("readBlock")
+    fmt.Println("read in block error")
+    return err
+  }*/
+
+  file.Seek(int64(startByte), 0)
+
+  //err = blockchainbuilder.ParseBlockOnly(b, file)
+  err := blockchainbuilder.ParseBlock(b, file)
+  if err != nil {
+    fmt.Println("parse bytes only")
     return err
   }
   return nil
@@ -191,31 +218,66 @@ func MapBlockToDBlock(b *block.Block, d *block.DBlock) (error) {
   d.Nonce = int(b.Header.Nonce)
   d.TransactionCount = int(b.TransactionCount)
 
+  var dTxs []block.DTransaction
+
   for t := 0; t < d.TransactionCount - 1; t++ {
-    d.Transactions[t].TransactionIndex = 0
-    d.Transactions[t].Time = d.TimeStamp
-    d.Transactions[t].TransactionHash = b.Transactions[t].TransactionHash
-    d.Transactions[t].TransactionVersionNumber = int(b.Transactions[t].TransactionVersionNumber)
-    d.Transactions[t].InputCount = int(b.Transactions[t].InputCount)
-    for i := 0; i < d.Transactions[t].InputCount - 1; i++ {
-      d.Transactions[t].Inputs[i].TransactionHash = b.Transactions[t].Inputs[i].TransactionHash
-      d.Transactions[t].Inputs[i].TransactionIndex = int(b.Transactions[t].Inputs[i].TransactionIndex)
-      d.Transactions[t].Inputs[i].InputScriptLength = int(b.Transactions[t].Inputs[i].InputScriptLength)
-      d.Transactions[t].Inputs[i].InputScript = b.Transactions[t].Inputs[i].InputScript
-      d.Transactions[t].Inputs[i].SequenceNumber = int(b.Transactions[t].Inputs[i].SequenceNumber)
+
+    var dIns []block.DInput
+    var tx block.DTransaction
+
+    tx.TransactionIndex = 0
+    tx.Time = d.TimeStamp
+    tx.TransactionHash = b.Transactions[t].TransactionHash
+    tx.TransactionVersionNumber = int(b.Transactions[t].TransactionVersionNumber)
+    tx.InputCount = int(b.Transactions[t].InputCount)
+
+    for i := 0; i < tx.InputCount - 1; i++ {
+
+      var in block.DInput
+
+      in.TransactionHash = b.Transactions[t].Inputs[i].TransactionHash
+      in.TransactionIndex = int(b.Transactions[t].Inputs[i].TransactionIndex)
+      in.InputScriptLength = int(b.Transactions[t].Inputs[i].InputScriptLength)
+      in.InputScript = b.Transactions[t].Inputs[i].InputScript
+      in.SequenceNumber = int(b.Transactions[t].Inputs[i].SequenceNumber)
+
+      dIns = append(dIns, in)
     }
-    d.Transactions[t].OutputCount = int(b.Transactions[t].OutputCount)
-    for o := 0; o < d.Transactions[t].OutputCount - 1; o++ {
-      d.Transactions[t].Outputs[o].OutputValue = int(b.Transactions[t].Outputs[o].OutputValue)
-      d.Transactions[t].Outputs[o].ChallengeScriptLength = int(b.Transactions[t].Outputs[o].ChallengeScriptLength)
-      d.Transactions[t].Outputs[o].ChallengeScript = b.Transactions[t].Outputs[o].ChallengeScript
-      d.Transactions[t].Outputs[o].KeyType = b.Transactions[t].Outputs[o].KeyType
-      d.Transactions[t].Outputs[o].NumAddresses = len(b.Transactions[t].Outputs[o].Addresses)
-      for a := 0; a < d.Transactions[t].Outputs[o].NumAddresses; a++ {
-        d.Transactions[t].Outputs[o].Addresses[a].Address = b.Transactions[t].Outputs[o].Addresses[a].Address
+
+    tx.OutputCount = int(b.Transactions[t].OutputCount)
+    var dOuts []block.DOutput
+
+    for o := 0; o < tx.OutputCount - 1; o++ {
+
+      var out block.DOutput
+
+      out.OutputValue = int(b.Transactions[t].Outputs[o].OutputValue)
+      out.ChallengeScriptLength = int(b.Transactions[t].Outputs[o].ChallengeScriptLength)
+      out.ChallengeScript = b.Transactions[t].Outputs[o].ChallengeScript
+      out.KeyType = b.Transactions[t].Outputs[o].KeyType
+      out.NumAddresses = len(b.Transactions[t].Outputs[o].Addresses)
+
+      var dAdds []block.DAddress
+
+      for a := 0; a < out.NumAddresses; a++ {
+
+        var add block.DAddress
+
+        add.Address = b.Transactions[t].Outputs[o].Addresses[a].Address
+
+        dAdds = append(dAdds, add)
       }
+      out.Addresses = dAdds
+      dOuts = append(dOuts, out)
     }
-    d.Transactions[t].TransactionLockTime = int(b.Transactions[t].TransactionLockTime)
+
+    tx.TransactionLockTime = int(b.Transactions[t].TransactionLockTime)
+
+    tx.Inputs = dIns
+    tx.Outputs = dOuts
+    dTxs = append(dTxs, tx)
+
   }
+  d.Transactions = dTxs
   return nil
 }

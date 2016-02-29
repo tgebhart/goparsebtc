@@ -163,6 +163,9 @@ const (
 //BLOCKCHAININFOENDPOINT is the API endpoint for json information from blockchain.info
 var BLOCKCHAININFOENDPOINT = "https://blockchain.info/rawblock/"
 
+//APICode is passed with blockchain.info call for extended API requests
+var APICode = "865c2783-0c23-45b7-a808-29dbca5435df"
+
 //REQUESTTYPE denotes the variable type when using http call
 var REQUESTTYPE = "string"
 
@@ -245,7 +248,7 @@ func ValidateTransactionLockTime(transactionLockTime uint32) (bool) {
   return false
 }
 
-//ParseOutputScript iterates an output script and validates interior op_codes
+// ParseOutputScript iterates an output script and validates interior op_codes. Returns keytype
 func ParseOutputScript(output *block.Output) (string, error) {
   var multiSigFormat int
   var keytype string
@@ -483,10 +486,10 @@ func BlockChainInfoValidation(Block *block.Block) (error) {
 
 //GetReplacementKey returns blockchain.info's reported previous block hash given the parameter block hash
 func GetReplacementKey(hash string) (string, string, error) {
-  narcolepsy()
+  //narcolepsy()
   blockHash := hash
   fmt.Println("Looking for previous block hash ...")
-  resp, err := http.Get(BLOCKCHAININFOENDPOINT + blockHash)
+  resp, err := http.Get(BLOCKCHAININFOENDPOINT + blockHash + "?" + APICode)
   if err != nil {
     return "", "", err
   }
@@ -518,7 +521,7 @@ func getTxs(body []byte) (*block.ResponseBlock, error) {
 //BridgeWithBlockchainInfo bridges data that could not be parsed with block from blockchain.info
 func BridgeWithBlockchainInfo(dBlock *block.DBlock, hash string) (error) {
   var r = new(block.ResponseBlock)
-  resp, err := http.Get(BLOCKCHAININFOENDPOINT + hash)
+  resp, err := http.Get(BLOCKCHAININFOENDPOINT + hash + "?" + APICode)
   if err != nil {
     return err
   }
