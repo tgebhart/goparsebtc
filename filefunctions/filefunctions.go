@@ -13,6 +13,9 @@ import (
 //ByteCount tracks the number of bytes needed to parse the entire block. Often times less than BlockLength
 var ByteCount int
 
+// ErrDetailedMagic is thrown when the detailed search for magic number searches for too long
+var ErrDetailedMagic = errors.New("DetailedLookForMagic: could not find magic number")
+
 //Possible64ByteErrorFlag tracks whether we've hit a missed byte in parsing in the main method output count
 //var Possible64ByteErrorFlag bool
 
@@ -86,17 +89,23 @@ func LookForMagic(file *os.File) (uint32, error) {
 //DetailedLookForMagic goes byte-by-byte to look for magic number
 func DetailedLookForMagic(file *os.File) (uint32, error) {
   var iter uint32
+  var track int
   for iter != 0xD9B4BEF9 {
+
     b, err := ReadNextBytes(file, 4)
     if err != nil {
       return 0, err
     }
+    
     err = ReadBinaryToUInt32(b, &iter)
     if err != nil {
       log.Fatal("Read binary in DetailedLookForMagic failed: ", err)
     }
-    if iter != 0xD9B4BEF9 {
-      StepBack(3, file)
+
+    track++
+
+    if track > 50000 {
+      return 0, ErrDetailedMagic
     }
   }
   return iter, nil

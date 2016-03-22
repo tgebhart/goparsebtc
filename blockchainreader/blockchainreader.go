@@ -95,21 +95,17 @@ func LoadChain(chain *Blockchain, readchain *ReadChain, datLocation string) (err
   for i := 1; i < len(readchain.ReadBlocks) - 1; i++ {
     var fBlock block.Block
     b := readchain.ReadBlocks[i]
-    fmt.Println(b.FileEndpoint)
 
     nextEndpoint := b.FileEndpoint
 
-    fmt.Println("Read b: ", b.BlockHash)
-
     if nextEndpoint == "" || readchain.ReadBlocks[i-1].ByteOffset == 0 {
+      fmt.Println("briding with blockchain.info 1")
       err := blockvalidation.BridgeWithBlockchainInfo(&dBlock, b.BlockHash)
       if err != nil {
         return err
       }
-      fmt.Println("dBlock: ", dBlock)
     } else {
 
-      fmt.Println("compare", nextEndpoint, datEndpoint)
       if nextEndpoint != datEndpoint {
         file, err = os.Open(datLocation + nextEndpoint)
         if err != nil {
@@ -119,23 +115,21 @@ func LoadChain(chain *Blockchain, readchain *ReadChain, datLocation string) (err
         datEndpoint = nextEndpoint
       }
 
-      err := readBlock(&fBlock, readchain.ReadBlocks[i-1].ByteOffset, readchain.ReadBlocks[i-1].BlockLength, file)
+      err := ScanBlock(&fBlock, readchain.ReadBlocks[i-1].ByteOffset, readchain.ReadBlocks[i-1].BlockLength, file)
       if err != nil {
         if err == blockchainbuilder.ErrBadMagic {
+          fmt.Println("briding with blockchain.info 2")
           err = blockvalidation.BridgeWithBlockchainInfo(&dBlock, b.BlockHash)
           if err != nil {
             return err
           }
 
         } else {
-          fmt.Println("LoadChain: ")
           return err
         }
       }
 
       if fBlock.BlockHash != "" {
-
-        fmt.Println(fBlock.BlockHash, b.BlockHash)
 
         if fBlock.BlockHash != b.BlockHash {
           return ErrCompareHashes
@@ -169,8 +163,8 @@ func UploadFullChain(chain *block.Blockchain) (error) {
 }
 */
 
-
-func readBlock(b *block.Block, startByte int, length int, file *os.File) (error) {
+//ScanBlock reads a block using ParseBlock from blockchainbuilder
+func ScanBlock(b *block.Block, startByte int, length int, file *os.File) (error) {
 
   //bytes := make([]byte, length)
 
@@ -185,7 +179,6 @@ func readBlock(b *block.Block, startByte int, length int, file *os.File) (error)
   //err = blockchainbuilder.ParseBlockOnly(b, file)
   err := blockchainbuilder.ParseBlock(b, file)
   if err != nil {
-    fmt.Println("parse bytes only")
     return err
   }
   return nil
@@ -201,6 +194,12 @@ func putBlock(chain *Blockchain, d block.DBlock) (error) {
   chain.BlockMap[d.BlockHash] = d
 
   return nil
+}
+
+func uploadBlock(d block.DBlock) (error) {
+
+  return nil
+
 }
 
 

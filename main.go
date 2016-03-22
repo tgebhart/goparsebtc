@@ -116,6 +116,10 @@ func main() {
             err = nil
             chain.PrepareSkipBlock(&Block, pathEndpoint, blockCounter, bytesRead, file)
           }
+          if err == filefunctions.ErrDetailedMagic {
+            fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n Problem Looking for Magic Byte-by-Byte \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+            break
+          }
           if err == blockchainbuilder.ErrBadMagic {
             log.Fatal(err)
           }
